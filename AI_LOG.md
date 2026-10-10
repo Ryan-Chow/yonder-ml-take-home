@@ -223,3 +223,50 @@ without network access or a key.
 - 4 pytest cases pass: the key is redacted in two forms, the skip path works, and a missing key exits 1 with a clean
   message.
 - Limitation: the real download path cannot be exercised here, because no API key is available.
+
+## 4. Data audit and leakage check
+
+**What was asked:** Step 3: `scripts/audit_data.py`, which writes per-class and per-split counts, box geometry,
+lighting stats, a GT sample sheet, and a leakage check that groups images by original stem and by phash.
+
+**What was kept vs. rewritten, and why:**
+- I kept the stem and phash checks the prompt asked for, but they were not enough on their own. The prompt assumed
+  val images would share an `<orig>` stem with train images. Reading `sampling/sample-roboflow.py` showed it keeps
+  **one** `.rf.` copy per source photo, so the stem check is structurally zero.
+- Iterations before committing:
+  1. The first version was a whole-image phash. The pair contact sheet showed that at distance 8, unrelated
+     *rotated* photos matched, because the black rotation corners dominate the hash.
+  2. I switched to a centre-crop phash (central 40%).
+  3. That surfaced four "distance 0" pairs, all white-background synthetic collages whose centre crops are blank.
+     I now exclude near-uniform crops (std < 8).
+  4. The phash still cannot see consecutive shots of the same scene taken at different rotations (centre-crop
+     distance ≈32), so I added a **sequence** rule for consecutive capture numbers and timestamps within 30 s.
+- The grouping helpers live in `src/data_utils.py` (commit `60856d8`), so the split script uses exactly the
+  same definition of "same origin".
+
+**What the AI got wrong / had to be caught:**
+- The prompt's leakage model (shared `.rf.` stems) was wrong for this dataset. I caught it by reading the sampling
+  script and confirming 0 stem overlap.
+- My own whole-image phash produced false matches. The pair contact sheet showed rotated, different scenes at
+  d=8.
+- My blank-crop collisions came from the centre-crop fix itself. I caught them by inspecting the d=0 pairs.
+- While reviewing `leakage_pairs.jpg`, I first called one sequence pair "unrelated". Closer review showed it was the
+  same bottle with its background replaced. I retracted that call after a 30-pair precision audit.
+- A leftover expression in the box-centre scatter (`[...][:0] or [...]`) was nonsense. I caught it re-reading the
+  code before the first run and simplified it.
+
+**Verification & final review:**
+- `audit_samples.jpg`: GT boxes sit on the objects in all 16 images, with correct class colours, so YOLO parsing
+  (xc, yc, w, h, normalised) is right.
+- Every one of the 1222 label lines passes strict parsing (5 fields, class ∈ {0,1}, coords ∈ [0,1]). All images
+  are 512×512.
+- Leakage: **107/199 val images (54%) share a same-origin group with train.** By rule: sequence 93, family 8,
+  phash 0, exact stem 0.
+- The sequence rule's precision was checked by eye on 30 random cross-split pairs: 28 same scene and 2 same object
+  and session. So 107 is a slight overestimate at worst, not an artefact.
+- Limitations:
+  - Rule-based grouping can still miss same-scene photos with unrelated names. The phash should catch exact
+    near-duplicates, but not different viewpoints.
+  - The 30 s timestamp window and the gap ≤ 2 were chosen by eye, not tuned.
+- Lighting: 15% of train images are dark (L<80), 7% are bright (L>170), 13% are low-contrast (std L < 40), and
+  about 39% carry Roboflow rotation corners. This spread is the justification for CLAHE in step 5.

@@ -1,0 +1,13 @@
+{
+  "n_images": 999,
+  "val_leaked": 107,
+  "n_val": 199,
+  "n_groups": 532,
+  "val_hits_by_rule": {
+    "exact stem": 0,
+    "family": 8,
+    "sequence": 93,
+    "phash": 0,
+    "any (connected groups)": 107
+  }
+}

@@ -126,8 +126,10 @@ def main():
                 best_any = float(ious[m.pred_idx].max()) if len(G) else 0.0
                 if best_same >= 0.5 and any(g in matched_gt for g in same if ious[m.pred_idx, g] >= 0.5):
                     sub = "duplicate of a matched object"
-                elif best_any >= 0.1:
+                elif best_same >= 0.1:
                     sub = "poor localisation (IoU 0.1-0.5)"
+                elif best_any >= 0.1:  # e.g. a 'bottle' box drawn over the barrel a mallet is lying on
+                    sub = "overlaps a different-class object"
                 else:
                     sub = "background (no object there)"
                 e.update(cls=CLASS_NAMES[int(p[0])], size=size_bucket(p[3], p[4]), conf=float(p[5]), subtype=sub)

@@ -20,7 +20,8 @@ Every error is saved in `results/errors/` (green = GT, red = prediction, thick =
 | fn | poorly localised (IoU 0.1-0.5) | 14 |
 | fp | background (no object there) | 16 |
 | fp | duplicate of a matched object | 3 |
-| fp | poor localisation (IoU 0.1-0.5) | 16 |
+| fp | overlaps a different-class object | 3 |
+| fp | poor localisation (IoU 0.1-0.5) | 13 |
 | wrong_class | class confusion | 3 |
 
 ## By class

@@ -37,7 +37,7 @@
       "cls": "bottle",
       "size": "large (>=96px)",
       "conf": 0.8073632717132568,
-      "subtype": "poor localisation (IoU 0.1-0.5)",
+      "subtype": "overlaps a different-class object",
       "file": "errors/002_fp_bottle_20231021_174459_jpg.rf.eb0ac631a4acf997a.jpg"
     },
     {
@@ -63,7 +63,7 @@
       "cls": "bottle",
       "size": "large (>=96px)",
       "conf": 0.7549927234649658,
-      "subtype": "poor localisation (IoU 0.1-0.5)",
+      "subtype": "overlaps a different-class object",
       "file": "errors/004_fp_bottle_20231021_174507_jpg.rf.0f494acffc4763a15.jpg"
     },
     {
@@ -76,7 +76,7 @@
       "cls": "bottle",
       "size": "large (>=96px)",
       "conf": 0.7544562220573425,
-      "subtype": "poor localisation (IoU 0.1-0.5)",
+      "subtype": "overlaps a different-class object",
       "file": "errors/005_fp_bottle_20231021_174521_jpg.rf.ae56e9fe45ffd36f0.jpg"
     },
     {

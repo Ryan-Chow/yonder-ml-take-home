@@ -524,3 +524,37 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
 - Limitations:
   - Buckets are small (e.g. 20 GT boxes in "bright"), so the rates carry wide intervals.
   - The thresholds for "dark" and "bright" were set from the audit, not tuned.
+
+## 11. Video test (stand-in clip; real video pending)
+
+**What was asked:** Step 10 and README Part 1.6: `scripts/video_test.py <video> --every N` writes annotated frames
+(≤30 in git) and a summary. If `data/video/test.mov` is absent, it tests on a clip built from val images and notes
+that the real video is pending.
+
+**What was kept vs. rewritten, and why:**
+- There was no `~/Downloads/test.mov`, so the script builds a stand-in clip (`2a7bb6b`) from 30 grouped-**val**
+  images, with zoom, motion blur, and exposure drift, at 1280×720 to exercise the non-square path.
+- Because the frames come from labelled images, it can also measure frame-level recall.
+- Later improvements (`a5cffbb`):
+  - Flicker is now measured only *within* a shot. Cuts between source images legitimately change what is visible.
+  - The confidence curve now uses detections ≥ 0.05, so near-misses under the threshold are visible instead of
+    flat zeros.
+  - The source image behind each "detected but absent" frame is listed.
+
+**What the AI got wrong / had to be caught:**
+- The first report's flicker (15–18%) mostly counted scene cuts, which is a misleading number. Within shots it is
+  0–7%.
+- The first confidence plot only showed detections that were already above threshold, so it could not show how
+  close the misses were.
+- Building this test exposed the aspect-ratio mismatch fixed in `fb3a529` (stretch vs. letterbox). The boxes on a
+  1280×720 frame were checked by eye to sit on the objects.
+
+**Verification & final review:**
+- Shipped model on the stand-in: bottle found in 40 of 48 frames where present (83%), mallet in 45 of 48 (94%).
+- The "detected but absent" frames trace back to:
+  - `t_bot_mal581`, the mislabelled mallet: the model is right.
+  - Two rooftop frames from the `20231021` session, with the same blue-barrel false positive seen in the error
+    analysis.
+- **This is not the README's real-world test.** The frames are val images with synthetic blur and exposure, not a
+  phone video of a mallet stand-in outdoors. To complete it, record the video and run
+  `python scripts/video_test.py data/video/test.mov --every 10`. Nothing else needs to change.

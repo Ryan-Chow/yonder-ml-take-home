@@ -48,7 +48,8 @@ RUNS = {
 
 
 def shipped_arm() -> str:
-    """The ablation arm whose checkpoint is weights/best.pt (chosen by scripts/ship.py), verified by hash."""
+    """The ablation arm whose checkpoint is weights/best.pt (chosen by scripts/ship.py), verified by hash.
+    On a fresh clone without runs/ (SKIP_TRAIN=1), the committed weights are evaluated as arm 'shipped'."""
     import hashlib
 
     h = hashlib.sha256((ROOT / "weights" / "best.pt").read_bytes()).hexdigest()
@@ -56,7 +57,13 @@ def shipped_arm() -> str:
         w = ROOT / RUNS[run]["weights"]
         if w.exists() and hashlib.sha256(w.read_bytes()).hexdigest() == h:
             return run
-    raise SystemExit("weights/best.pt matches no ablation run; run scripts/ship.py")
+    from src.infer import uses_clahe
+
+    clahe = uses_clahe(ROOT / "weights" / "best.pt")
+    RUNS["shipped"] = dict(weights="weights/best.pt", raw="data/split", clahe=clahe,
+                           data=f"data/split{'_clahe' if clahe else ''}/data.yaml",
+                           desc="committed weights/best.pt (no local training runs to compare against)")
+    return "shipped"
 
 
 def ultra_val(weights: Path, data: Path, device: str, name: str) -> dict:
@@ -176,9 +183,12 @@ def plot_confusion(cm: np.ndarray, conf: float, out: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-mps", action="store_true")
-    ap.add_argument("--runs", nargs="+", choices=list(RUNS), default=list(RUNS),
+    ap.add_argument("--runs", nargs="+", choices=list(RUNS) + ["shipped"], default=list(RUNS),
                     help="subset of runs to evaluate (e.g. skip 'leak' while it is still training)")
     a = ap.parse_args()
+    ship = shipped_arm()
+    if ship == "shipped":
+        a.runs = list(dict.fromkeys(a.runs + ["shipped"]))
     res = {}
     for run, cfg in RUNS.items():
         if run not in a.runs:
@@ -202,7 +212,6 @@ def main():
             res[f"leak_{tag}"] = ultra_val(ROOT / RUNS["leak"]["weights"], y, "cpu", f"leak_{tag}_cpu")
             res[f"leak_{tag}"]["n_images"] = len(names)
 
-    ship = shipped_arm()
     if ship not in res:
         raise SystemExit(f"shipped arm {ship} was not evaluated (check --runs)")
     res["_shipped"] = ship
@@ -216,7 +225,7 @@ def main():
         "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res[ship]["per_class"].items()}}, indent=2))
 
     own = {r: own_counts(ROOT / RUNS[r]["weights"], ROOT / RUNS[r]["raw"], RUNS[r]["clahe"],
-                         round(res[r]["conf_at_max_mean_f1"], 3)) for r in ABLATION if r in res}
+                         round(res[r]["conf_at_max_mean_f1"], 3)) for r in (*ABLATION, "shipped") if r in res}
 
     mps = None
     if not a.skip_mps:
@@ -236,7 +245,7 @@ def main():
           f"`{ship}`** (chosen by `scripts/ship.py`; rule and bootstrap CIs in `results/ablation.md`).", "",
           "| run | data / augmentation | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |",
           "|---|---|---|---|---|---|---|---|---|---|"]
-    for run in [r for r in ABLATION if r in res]:
+    for run in [r for r in (*ABLATION, "shipped") if r in res]:
         r = res[run]
         t = r.get("train", {})
         for n in CLASS_NAMES + ["mean"]:

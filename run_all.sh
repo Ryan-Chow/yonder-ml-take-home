@@ -2,9 +2,9 @@
 # Fresh clone -> trained model -> metrics -> predictions, in one command.
 #
 #   export ROBOFLOW_API_KEY=...          # or put it in a git-ignored .env (see .env.example)
-#   ./run_all.sh                         # full pipeline: ~1.5-2 h on an Apple-Silicon laptop, ~15 min on a GPU
-#   SKIP_TRAIN=1 ./run_all.sh            # no training: evaluate the committed weights/best.pt only
-#   SKIP_LEAK=1 ./run_all.sh             # skip run (c), the leakage-comparison model
+#   ./run_all.sh                         # full pipeline, 5 training runs: ~3.5 h on an M5 laptop (MPS), ~30 min on a GPU
+#   SKIP_TRAIN=1 ./run_all.sh            # no training: evaluate the committed weights/best.pt only (~5 min)
+#   SKIP_LEAK=1 ./run_all.sh             # skip the leakage-comparison run
 #
 # Device is picked automatically (CUDA -> MPS -> CPU); override with DEVICE=cpu|mps|0.
 set -euo pipefail
@@ -46,11 +46,12 @@ python -m src.preprocess --src data/orig --dst data/orig_clahe
 python scripts/show_preprocess.py >/dev/null
 
 if [ "${SKIP_TRAIN:-0}" != "1" ]; then
-  step "6/9 smoke test, then training (baseline, final, leak unless SKIP_LEAK=1)"
+  step "6/9 smoke test, 2x2 ablation training, leak run, then pick the shipped arm"
   python scripts/train.py --run final --smoke --device "$DEVICE"
-  python scripts/train.py --run baseline --device "$DEVICE"
-  python scripts/train.py --run final --device "$DEVICE"      # copies runs/final/weights/best.pt -> weights/best.pt
+  for run in baseline clahe_only aug_only final; do python scripts/train.py --run "$run" --device "$DEVICE"; done
   [ "${SKIP_LEAK:-0}" = "1" ] || python scripts/train.py --run leak --device "$DEVICE"
+  python scripts/bootstrap_ablation.py >/dev/null && echo "results/ablation.md written"
+  python scripts/ship.py              # pre-registered rule -> weights/best.pt + results/shipped.json
 else
   step "6/9 SKIP_TRAIN=1: using committed weights/best.pt"
 fi

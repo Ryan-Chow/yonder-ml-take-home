@@ -709,3 +709,27 @@ choice and finding.
   - The shipped model was picked by a tie-break among statistically indistinguishable arms.
   - The real video test is still pending.
   - Single seeds; the threshold is tuned on val.
+
+## 16. Final checks and push
+
+**What was asked:** The "Final step" section:
+- Run the tests and `git status`.
+- Make sure no `.env`, dataset, `data/`, `runs/`, or `logs/` is tracked, and every file is under 100 MB.
+- `git push -u origin main` without force.
+- Confirm the repo is public.
+
+**What was kept vs. rewritten, and why:** Nothing was rewritten. I added a history-wide scan for key-like strings
+on top of the checks the prompt listed.
+
+**What the AI got wrong that had to be caught:**
+- The first `git push` failed with `HTTP 400 / RPC failed`, git's HTTP buffer being too small for a 49-commit push
+  that includes two versions of the 6.5 MB weights.
+- I fixed it with a repo-local `git config http.postBuffer 524288000` and a normal (non-force) push.
+
+**How it was verified (verification & final review):**
+- 28/28 tests pass, and the working tree is clean.
+- The forbidden-paths grep is empty, and DEV_NOTES.md is not tracked.
+- The largest tracked file is `weights/best.pt` at 6.5 MB; `results/` is 5.4 MB.
+- The only match for key-like strings in the whole history is the fake `OTHERKEY` in `tests/test_download.py`.
+- After the push, local `HEAD` equals `origin/main`. Without auth, `curl` returns 200 for both the repo page and the
+  raw weights file.

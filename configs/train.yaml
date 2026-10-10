@@ -1,0 +1,42 @@
+# Ultralytics training settings shared by every run in scripts/train.py.
+# `common` applies to all runs; `final_aug` is applied ONLY to the final (CLAHE) run. The baseline keeps Ultralytics
+# defaults for every augmentation, so the ablation isolates "CLAHE + deliberate augmentation" vs "defaults".
+# Numbers in comments refer to results/audit.md.
+
+common:
+  model: yolov8n.pt        # pretrained COCO nano: the size class that is realistic on an OrangePi NPU (RKNN)
+  imgsz: 512               # dataset is natively 512x512 (Roboflow stretch); upscaling adds nothing
+  epochs: 60
+  patience: 15             # early stopping on val fitness (0.1*mAP50 + 0.9*mAP50-95)
+  batch: 32
+  workers: 4
+  seed: 0
+  deterministic: true
+  optimizer: auto          # Ultralytics picks AdamW + lr for short schedules; logged in the run's args.yaml
+  cos_lr: false
+  close_mosaic: 10         # last 10 epochs without mosaic so the model also sees whole, un-tiled scenes
+  plots: true
+  verbose: true
+
+final_aug:
+  # --- photometric: outdoor exposure varies a lot (mean L spans 0-254, 15% dark, 8% bright) ---
+  hsv_h: 0.015             # keep hue shifts small (default): colour is the strongest cue (orange mallet,
+                           # blue/green bottles), large hue jitter would teach the model to ignore it
+  hsv_s: 0.6               # saturation varies with sun vs overcast and camera white balance (default 0.7;
+                           # slightly lower so washed-out orange is not pushed to grey)
+  hsv_v: 0.5               # brightness/exposure: stronger than default 0.4 because global exposure is the
+                           # biggest variation in the audit and CLAHE (local) does not fully remove it
+  # --- geometric ---
+  degrees: 10.0            # small rotations: rover camera roll on uneven terrain. Kept small because ~39% of
+                           # train images already carry Roboflow rotation (black corners)
+  translate: 0.1           # default; objects appear anywhere in frame (box-centre scatter in audit_plots.png)
+  scale: 0.5               # default +-50%: objects are small (median box 1.3% of image) and seen at many distances
+  shear: 0.0
+  perspective: 0.0005      # mild perspective: camera looks down at the ground at varying pitch
+  fliplr: 0.5              # bottles and mallets have no left/right handedness
+  flipud: 0.0              # NO vertical flip: a forward-facing rover camera always has sky up / ground down;
+                           # upside-down scenes would only teach an impossible context
+  mosaic: 1.0              # mixes 4 scenes per sample: more small objects and backgrounds per batch, useful with
+                           # only ~430 groups of source scenes
+  mixup: 0.0               # blended ghost objects don't resemble real occlusion; not used
+  copy_paste: 0.0          # needs segmentation masks, which this dataset doesn't have

@@ -300,3 +300,42 @@ split passed on the first run, and an independent re-check from the CSV agreed.
 - 304 images changed split relative to Roboflow's.
 - Caveat: the groups are only as good as the rules from step 4. Same-place photos with unrelated filenames can
   still sit on both sides, so grouped-val scores may still be slightly optimistic.
+
+## 6. CLAHE preprocessing and augmentation config
+
+**What was asked:** Step 5: a single `src/preprocess.py` function used by both training-data prep and inference
+(CLAHE on LAB L, justified by the audit), output to `data/split_clahe/`, and a commented `configs/train.yaml` of
+outdoor-oriented augmentations.
+
+**What was kept vs. rewritten, and why:**
+- Kept as specified. `preprocess()` is the only image transform. Training data goes through it via
+  `python -m src.preprocess`, and `predict.py` will import the same function.
+- One deliberate choice: the outputs are written as **PNG**, not JPEG. Re-encoding as JPEG would make the training
+  pixels differ slightly from what inference computes in memory.
+- I also built `data/orig_clahe/` for run (c), the leakage comparison.
+- Evidence (commit `5267055`) lives in `results/clahe_stats.md` and `clahe_examples.jpg`.
+- Augmentation choices, each commented in the yaml: `hsv_v` raised to 0.5, `degrees` 10, `perspective` 0.0005,
+  `flipud` 0 (a rover camera is always upright). The baseline run keeps every Ultralytics default.
+
+**What the AI got wrong / had to be caught:**
+- My first justification for CLAHE implied it would "normalise lighting". The before/after stats show it does not
+  fully do that:
+  - Dark images drop from 15% to 7% and low-contrast images from 13% to 5%.
+  - The spread of per-image mean brightness only shrinks from 40 to 32.
+  - The darkest images (mean L ≈ 0–5) stay unreadable.
+
+  I reworded the claim: CLAHE fixes *local* contrast, and global exposure robustness is handed to the `hsv_v`
+  augmentation.
+- Those near-black images have mallet labels that are invisible even to a human. I flagged them as likely
+  unavoidable misses (DEV_NOTES).
+
+**Verification & final review:**
+- Colour preservation was measured, not assumed: the mean |Δa/b| is 0.11/255.
+- Counts after preprocessing: 800/199 images and labels in both `split_clahe` and `orig_clahe`. Label files are
+  byte copies, and the yaml has no `test:` key.
+- Every "default" value cited in `configs/train.yaml` was checked against the installed
+  `ultralytics/cfg/default.yaml`.
+- `albumentations` is not installed, so Ultralytics' optional albumentations step (blur and its own CLAHE, at
+  p=0.01) is off in both arms. The ablation compares exactly what the yaml says.
+- One visible artefact: a faint tile seam on one near-black image. It is cosmetic, and the clip limit keeps it
+  small.

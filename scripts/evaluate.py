@@ -219,7 +219,7 @@ def main():
     # (which reads threshold.json) reproduces them detection for detection
     thr = round(res[ship]["conf_at_max_mean_f1"], 3)
     (RESULTS / "threshold.json").write_text(json.dumps({
-        "conf": thr, "model": f"weights/best.pt = runs/{ship}/weights/best.pt",
+        "conf": thr, "model": "weights/best.pt" + ("" if ship == "shipped" else f" = {RUNS[ship]['weights']}"),
         "criterion": "confidence maximising the mean (over classes) F1 on the grouped val split, shipped model, "
         "CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
         "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res[ship]["per_class"].items()}}, indent=2))

@@ -621,3 +621,43 @@ that the real video is pending.
   12.7 MB.
 - 320 input: 2.6× fewer FLOPs and 2.6× lower ONNX CPU latency, for −0.041 mAP50 (bottle −0.054, mallet −0.028).
 - Limitation: nothing here ran on the real NPU. Apple-CPU INT8 speed-ups (12.8 → 11.7 ms) say little about RKNN.
+
+## 14. run_all.sh, Colab notebook, fresh-clone test
+
+**What was asked:** Step 13: `run_all.sh` covering fresh clone → venv → install → download → audit → split →
+preprocess → train → evaluate → predict demo, plus `colab.ipynb` (with `getpass` for the key) for reviewers who have
+a GPU.
+
+**What was kept vs. rewritten, and why:**
+- `run_all.sh` (`0eb1600`) uses `set -euo pipefail`, finds a Python ≥ 3.12, and picks CUDA, then MPS, then CPU. It
+  supports `SKIP_TRAIN=1` (evaluate the committed weights) and `SKIP_LEAK=1`.
+- After the shipping change it was updated (`ac62acb`) to train the 2×2 plus the leak run, then bootstrap, then
+  `ship.py`, then evaluate.
+- `evaluate.py` gained a fallback for a fresh clone with no `runs/`: it evaluates the committed weights as arm
+  `shipped`.
+
+**What the AI got wrong / had to be caught:**
+- **My first `run_all.sh` had two bugs:**
+  - `${SKIP_LEAK:+…}` printed "leak skipped" even when `SKIP_LEAK=0`.
+  - `ls … | head` could kill the script under `pipefail` via SIGPIPE.
+
+  I caught both by reading the script before running it.
+- **The fresh-clone test found two real problems:**
+  - Before the fallback, `SKIP_TRAIN=1` would have exited, because `evaluate.py` required the training runs to
+    identify the shipped model.
+  - `threshold.json` named a non-existent `runs/shipped/...` path (fixed in `9a76167`).
+
+**Verification & final review:**
+- **Fresh-clone test:** I ran `git clone` of the repo into a scratch folder, copied in the dataset (no API key is
+  available, so the download step was exercised only on its skip path), and symlinked the venv. Then I ran
+  `SKIP_TRAIN=1 ./run_all.sh`.
+  - All 9 steps ran in 80 s, and 28 tests passed in the clone.
+  - `pip install -r requirements.txt` installed nothing, so the pins match the tested environment.
+  - The regenerated split manifest, audit, CLAHE stats, error analysis, hard examples, and video report are
+    **byte-identical** to the committed ones. The threshold (0.426) and all metrics reproduce exactly.
+- **Not tested:**
+  - The full-training path of `run_all.sh` end to end. Each step was run individually, but not as one 3.5-hour
+    script.
+  - `colab.ipynb` was never executed. I have no Colab or CUDA access here; it was only checked to be valid JSON with
+    the same commands.
+  - A real Roboflow download.

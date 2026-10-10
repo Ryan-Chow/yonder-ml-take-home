@@ -1,0 +1,182 @@
+{
+  "baseline": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.7722294970868494,
+        "recall": 0.7616129008233232,
+        "f1": 0.7668844572023559,
+        "mAP50": 0.7897681508068795,
+        "mAP50-95": 0.45924133006860857
+      },
+      "mallet": {
+        "precision": 0.9435511306689545,
+        "recall": 0.9286372284680272,
+        "f1": 0.9360347772979412,
+        "mAP50": 0.9630586992882874,
+        "mAP50-95": 0.6225393528664716
+      }
+    },
+    "mean": {
+      "precision": 0.8578903138779019,
+      "recall": 0.8451250646456752,
+      "f1": 0.8514596172501485,
+      "mAP50": 0.8764134250475835,
+      "mAP50-95": 0.5408903414675401
+    },
+    "conf_at_max_mean_f1": 0.3893893893893894,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/baseline_cpu",
+    "train": {
+      "epochs_run": 60,
+      "best_epoch": 58,
+      "train_minutes": 40.7985
+    },
+    "desc": "(a) baseline: grouped split, raw images, default augmentation"
+  },
+  "final": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.818884373224104,
+        "recall": 0.753556313904257,
+        "f1": 0.7848632954511953,
+        "mAP50": 0.7970899756263127,
+        "mAP50-95": 0.4171053676167504
+      },
+      "mallet": {
+        "precision": 0.9584032136492112,
+        "recall": 0.9444444444444444,
+        "f1": 0.95137263019313,
+        "mAP50": 0.968105936962624,
+        "mAP50-95": 0.5632649884235346
+      }
+    },
+    "mean": {
+      "precision": 0.8886437934366576,
+      "recall": 0.8490003791743508,
+      "f1": 0.8681179628221627,
+      "mAP50": 0.8825979562944684,
+      "mAP50-95": 0.4901851780201424
+    },
+    "conf_at_max_mean_f1": 0.44144144144144143,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/final_cpu",
+    "train": {
+      "epochs_run": 60,
+      "best_epoch": 55,
+      "train_minutes": 46.7985
+    },
+    "desc": "(b) final: grouped split, CLAHE, custom augmentation"
+  },
+  "final_mps": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.818884344795003,
+        "recall": 0.7535561705764456,
+        "f1": 0.7848632046509639,
+        "mAP50": 0.7970899756263127,
+        "mAP50-95": 0.4171053676167504
+      },
+      "mallet": {
+        "precision": 0.9584034194260854,
+        "recall": 0.9444444444444444,
+        "f1": 0.9513727315775701,
+        "mAP50": 0.968105936962624,
+        "mAP50-95": 0.5632649884235346
+      }
+    },
+    "mean": {
+      "precision": 0.8886438821105442,
+      "recall": 0.8490003075104451,
+      "f1": 0.868117968114267,
+      "mAP50": 0.8825979562944684,
+      "mAP50-95": 0.4901851780201424
+    },
+    "conf_at_max_mean_f1": 0.44144144144144143,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/final_mps"
+  },
+  "own_matching": {
+    "baseline": {
+      "per_class": {
+        "bottle": {
+          "tp": 105,
+          "fp": 31,
+          "fn": 33,
+          "precision": 0.7720588235294118,
+          "recall": 0.7608695652173914,
+          "f1": 0.7664233576642335,
+          "n_gt": 138,
+          "recall_95ci": 0.07116870464587667
+        },
+        "mallet": {
+          "tp": 100,
+          "fp": 6,
+          "fn": 8,
+          "precision": 0.9433962264150944,
+          "recall": 0.9259259259259259,
+          "f1": 0.9345794392523364,
+          "n_gt": 108,
+          "recall_95ci": 0.049393003043776015
+        }
+      },
+      "confusion": [
+        [
+          105,
+          1,
+          30
+        ],
+        [
+          2,
+          100,
+          4
+        ],
+        [
+          31,
+          7,
+          0
+        ]
+      ]
+    },
+    "final": {
+      "per_class": {
+        "bottle": {
+          "tp": 103,
+          "fp": 23,
+          "fn": 35,
+          "precision": 0.8174603174603174,
+          "recall": 0.7463768115942029,
+          "f1": 0.7803030303030303,
+          "n_gt": 138,
+          "recall_95ci": 0.07259221969469745
+        },
+        "mallet": {
+          "tp": 102,
+          "fp": 4,
+          "fn": 6,
+          "precision": 0.9622641509433962,
+          "recall": 0.9444444444444444,
+          "f1": 0.9532710280373832,
+          "n_gt": 108,
+          "recall_95ci": 0.04320123370353083
+        }
+      },
+      "confusion": [
+        [
+          103,
+          0,
+          23
+        ],
+        [
+          2,
+          102,
+          2
+        ],
+        [
+          33,
+          6,
+          0
+        ]
+      ]
+    }
+  }
+}

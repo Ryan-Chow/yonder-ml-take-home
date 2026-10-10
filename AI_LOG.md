@@ -339,3 +339,47 @@ outdoor-oriented augmentations.
   p=0.01) is off in both arms. The ablation compares exactly what the yaml says.
 - One visible artefact: a faint tile seam on one near-black image. It is cosmetic, and the clip limit keeps it
   small.
+
+## 7. Training script, smoke test, device choice
+
+**What was asked:** Step 6 and the "Machine" section:
+- YOLOv8n pretrained, fixed seed, early stopping, and an ablation of baseline vs. final, ~60 epochs, patience 15.
+- Train on MPS with batch 32 and workers 4.
+- Run a smoke test before any full run, and a one-epoch MPS-vs-CPU timing test.
+
+**What was kept vs. rewritten, and why:**
+- `scripts/train.py` (`67125d5`) builds every run from `configs/train.yaml`, so the arms differ only in data and
+  augmentation.
+- I added a third run, **leak** (the final recipe on the original split), for the leakage measurement (entry 5).
+- The COCO checkpoint is moved to `data/pretrained/` so a stray `yolov8n.pt` never lands in the repo root.
+- Baseline and final were trained **in parallel** on MPS. Data loading runs on the main thread (see below), so two
+  processes overlap CPU and GPU work. The leak run was queued to start when baseline finished.
+
+**What the AI got wrong / had to be caught:**
+- **Bug (mine), fixed in `6874b40`:** `train.py` copied `best.pt` to `weights/best.pt` for *any* non-smoke `final`
+  run, including the one-epoch timing runs. I caught it when `weights/best.pt` appeared after the timing test.
+  Because the CPU timing run was already executing the old code, it wrote the file a **second** time after my first
+  delete; `git status` showed `weights/` untracked again. Now only a full-length run named `final` publishes
+  weights.
+- **Misleading number:** both one-epoch timing runs ended with val mAP ≈ 0 (val `cls_loss` 56 942 on MPS, 14 199 on
+  CPU). This looked like the MPS bug the prompt warned about. Checks that ruled it out:
+  1. CPU did it too.
+  2. Validating the same checkpoint on CPU and MPS gave identical results.
+  3. The weights had no NaN or Inf and sane BatchNorm stats.
+  4. The cause: with `epochs=1`, Ultralytics compresses the LR warmup into one epoch (lr 0.00167 vs. 0.00053).
+
+  The full 60-epoch runs dipped the same way in epochs 2–5, while LR ramped up, and then recovered (mAP50 0.64 by
+  epoch 10).
+- **Prompt assumption that didn't hold:** `workers 4` is silently overridden. Ultralytics 8.4.175 sets
+  `workers=0` on CPU and MPS (`engine/trainer.py:178`). I logged this instead of patching the library.
+
+**Verification & final review:**
+- Smoke test: 1 epoch on 20 images, finite losses, and the val set reports 199 images / 246 instances, matching the
+  split (138 + 108).
+- MPS took 38 s per epoch vs. 66 s on CPU (wall time, including val), so MPS was kept.
+- The `args.yaml` of every run was checked to confirm the custom augmentations (`hsv_v` 0.5, `degrees` 10,
+  `perspective` 0.0005) are present only in final and leak.
+- The optimizer chosen by `auto` was AdamW (lr 0.001667), the same for every arm.
+- Caveat: `deterministic=True` is not fully honoured on MPS (PyTorch warns that `scatter_reduce` and
+  `index_put_with_accumulate` have no deterministic MPS kernel). Re-training will give close but not bit-identical
+  weights.

@@ -585,3 +585,39 @@ that the real video is pending.
 - I checked the label suspects by eye on the contact sheet.
 - Limitation: training images are optimistic (the model saw them). Running the same ranking on new, unlabelled rover
   footage would be the real active-learning step; the strategy describes that loop.
+
+## 13. Efficiency: size, latency, ONNX, INT8 (stretch)
+
+**What was asked:** Step 11:
+- Report params, GFLOPs, size, and mean/p95 latency on CPU and MPS at 512 and 320.
+- Export to ONNX, try INT8, and re-evaluate mAP.
+- Discuss RKNN on the OrangePi NPU and the tradeoffs.
+
+**What was kept vs. rewritten, and why:**
+- `scripts/benchmark.py` (`bf10f9e`) tries INT8 two ways: every node, and with the Detect head's decode kept in
+  FP32. I expected naive full quantisation to break YOLOv8's mixed-range output tensor, so I built both variants
+  from the start.
+- It was later split into a measure step and a `--report-only` step, so the write-up can be regenerated without
+  re-timing.
+- The tradeoff discussion is generated from the measured numbers.
+
+**What the AI got wrong / had to be caught:**
+- **ONNX vs. PyTorch mAP mismatch** (0.677 vs. 0.692 on interim weights). This was the `rect=True` padding to 544
+  described in entry 8, not an export bug: raw outputs matched to 1e-3 and per-image predictions were identical.
+- **Latencies measured during training are worthless.** The dry run showed 107 ms on CPU while training competed
+  for the cores; on an idle machine it is 28.7 ms. The final numbers were taken with nothing else running.
+- **Unsupported claims in my first draft of the discussion**, removed or qualified after re-reading it against the
+  data:
+  - "~1 ms CLAHE" had never been measured. It is now measured: 0.61 ms at 512, 4.1 ms for a 1080p frame.
+  - "the 320 loss is mostly small objects" was not broken down by size, so I removed it.
+  - "training at 320 would recover the gap" is now marked untested.
+  - The claim about Rockchip's export cutting the DFL decode out of the graph is from background knowledge and is
+    marked "not verified here".
+
+**Verification & final review:**
+- 3.14 M params; 5.6 GFLOPs at 512, consistent with YOLOv8n's 8.7 GFLOPs at 640 scaled by (512/640)².
+- ONNX FP32 mAP equals PyTorch exactly.
+- Naive INT8 gives **mAP 0.000**. Keeping the head decode in FP32 gives 0.869 vs. 0.872 mAP50, at 3.6 MB vs.
+  12.7 MB.
+- 320 input: 2.6× fewer FLOPs and 2.6× lower ONNX CPU latency, for −0.041 mAP50 (bottle −0.054, mallet −0.028).
+- Limitation: nothing here ran on the real NPU. Apple-CPU INT8 speed-ups (12.8 → 11.7 ms) say little about RKNN.

@@ -3,9 +3,10 @@
 Mallet / bottle detector for the Yonder rover: YOLOv8n trained on the 999-image Roboflow sample, with a
 leak-free grouped split, CLAHE preprocessing, an ablation with uncertainty estimates, and error analysis.
 
-> **Who wrote this.** The whole submission (code, experiments, this document) was produced by Claude Code (an AI
-> coding agent) from one autonomous prompt by Ryan Chow. `docs/AGENT_RUN_LOG.md` gives the full prompt and records every
-> mistake that was caught along the way.
+> **Who wrote what.** Section 1 (how to run it) was written by Claude Code. Sections 2 and 4 are mine, co-written
+> with Claude Code, which helped me rewrite and expand my thinking. The technical details under section 2 and the
+> limitations list in section 3 were first drafted by Claude Code during its autonomous run and reviewed by me.
+> `AI_LOG.md` summarises how I used AI; `docs/AGENT_RUN_LOG.md` has the full agent prompt and every mistake caught.
 
 ## 1. How to run it
 
@@ -87,7 +88,46 @@ SKIP_TRAIN=1 ./run_all.sh    # same, but evaluates the committed weights instead
 | efficiency | `python scripts/benchmark.py` | `results/efficiency.md` |
 | tests | `python -m pytest -q` | 28 tests, covering:<br>- output format<br>- training PNGs equal inference pixels<br>- matcher<br>- AP equal to Ultralytics<br>- `predict.py` reproduces the reported metrics |
 
-## 2. Thought process
+## 2. Thought process (my summary)
+
+- **Looking at the data first:** The images varied a lot in lighting (dark, bright, low contrast),
+  and a lot were already rotated. That's why we added CLAHE and brightness/rotation augmentation.
+
+- **Leakage:** The default split had near-copies of the same scene in both train and val
+  (back-to-back video frames, photos from the same shoot). 54% of val images had a near-copy in train.
+  That makes the val score look better than the model really is, because it's being tested on
+  things it basically already saw.
+
+- **How I split instead:** We grouped similar photos together, and each group goes entirely into
+  train or entirely into val. Scores went down (0.883 vs 0.914 mAP50 on the leaky split), but the
+  lower number is the honest one.
+
+- **Preprocessing:** We used CLAHE to deal with the lighting variation, plus augmentations for rover
+  conditions (brightness, small rotations, no vertical flip since the camera is never upside down).
+  In the end, neither clearly helped on this val set.
+
+- **Which model shipped:** All three top models were basically tied. The rule (set before seeing
+  results) was: mAP50 first, which knocked out the baseline model, then mAP50-95 to break the tie
+  among the rest. That picked clahe_only, even though it doesn't win on every number.
+
+- **Metrics:** Detection needs per-class precision, recall and mAP, not accuracy. One overall number
+  would hide that bottles are much worse than mallets.
+
+- **Where it fails:** Bottles were missed 25% of the time vs 7% for mallets. Misses were much more common in
+  very dark or very bright images (30–35% vs 12% in normal light), plus one indoor hand-held video that was
+  nothing like the training data.
+
+- **Real video:** My hair dryer was never detected as a mallet, top-down angles failed on the water
+  bottle, and the fan and hair dryer were sometimes called "bottle." Either the hair dryer just
+  isn't close enough to a mallet, or the model only learned "orange mallet" (almost every training
+  mallet is orange), which isn't great for general use.
+
+- **If I kept going:** Film a real mallet outdoors at rover height from more angles, test whether
+  it only recognizes orange mallets, and test speed and accuracy on the OrangePi NPU.
+
+*Full technical details below were drafted by Claude Code and reviewed by me.*
+
+### Technical details
 
 ### Headline
 
@@ -266,8 +306,8 @@ To reproduce: `python scripts/video_test.py media/test_video.mp4 --every 20` (3 
 `results/video.md`, `results/video/`).
 
 - **The mallet stand-in was never detected as a mallet (0 of 46 frames).** It was called "bottle" in about 6 of the
-  30 saved frames instead. In training every mallet is the same orange rubber mallet, so the model seems to have
-  learned "orange mallet", not "hammer-shaped object". A blue hair dryer is a hard stand-in, but the result fits the
+  30 saved frames instead. Almost every training mallet is orange (89% of the 537 mallet boxes are clearly orange;
+  the rest are mostly dim or tiny), so the model seems to have learned "orange mallet", not "hammer-shaped object". A blue hair dryer is a hard stand-in, but the result fits the
   error analysis: the model leans on colour.
 - **The real bottle is found well for the first ~7 s** (mid-distance and close).
 - **It is then mostly missed**, at steep top-down angles, with motion blur, and near the bright ceiling-light
@@ -341,3 +381,14 @@ To reproduce: `python scripts/video_test.py media/test_video.mp4 --every 20` (3 
   4. Collect small/distant and hard-negative data per the hard-example plan.
   5. Evaluate with the web screenshots and collages removed.
   6. Try imgsz 640 for small objects against its NPU cost.
+
+## 4. My takeaways (Ryan)
+- The biggest lesson was leakage: 54% of val had a near-copy in train, and fixing the split
+  dropped mAP50 from 0.914 to 0.883. The default split would have made the model look better than it is.
+- None of the preprocessing choices clearly helped. clahe_only shipped through a tie-break
+  rule written in advance; I'd probably drop CLAHE for deployment simplicity.
+- My video test showed the real gap: it never recognized my hair dryer as a mallet, struggled
+  with top-down angles, and called my fan/hair dryer "bottle." It seems to have learned
+  "orange mallet," not "mallet shape."
+- Next I'd film a real mallet outdoors at rover height and collect more varied angles and
+  hard negatives.

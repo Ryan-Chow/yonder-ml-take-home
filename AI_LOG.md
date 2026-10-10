@@ -484,3 +484,43 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
 - I kept the pre-registered choice rather than switch after seeing the numbers, because switching would make the
   "rule" meaningless.
 - Each arm is a single seed, so seed variance is not in these CIs.
+
+## 10. Error analysis
+
+**What was asked:** Step 9 and README Part 1.5:
+- Match predictions to GT at IoU 0.5 on val.
+- Save every FP, FN, and wrong-class case as an image.
+- Write counts by type, class, size, and brightness.
+- Report patterns as data, and put causal hypotheses only in DEV_NOTES, labelled as hypotheses.
+
+**What was kept vs. rewritten, and why:**
+- `scripts/error_analysis.py` (`cd39651`) also reports **miss rates per bucket**, not just counts. Raw counts mostly
+  reflect how many objects a bucket contains.
+- It also gives **subtypes**: FN "no detection near it" vs. "poorly localised", and FP "background" vs.
+  "localisation" vs. "duplicate".
+- It adds a **filename-family** breakdown, because the grouped split puts whole sources in val.
+- It was re-run for the shipped model after the shipping decision. 78 error images are in `results/errors/`.
+
+**What the AI got wrong / had to be caught:**
+- **A "wrong-class" error turned out to be the label, not the model.** While checking the video stand-in overlay I
+  saw an orange mallet labelled "GT: bottle".
+  - I traced it to `t_bot_mal581`, then rendered the whole `t_bot_mal57x–58x` session. 578 and 581 are mallets
+    labelled bottle; 576 and 579 are labelled correctly.
+  - Two of the shipped model's three wrong-class errors are therefore correct predictions.
+  - The third (an extreme close-up of a mallet handle predicted as bottle) is a genuine error.
+- I kept the causal stories out of `results/errors.md`, as the prompt asked. They are in DEV_NOTES as H1–H6.
+
+**Verification & final review:**
+- Every error image was generated from the same detections `predict.py` produces; `tests/test_consistency.py` ties
+  the two together.
+- I reviewed the contact sheet by eye. The patterns in the tables are real:
+  - **Bottles miss 25% vs. 7% for mallets.**
+  - Dark and bright images miss 30–35% vs. 12% at normal exposure.
+  - One whole val video (`green_nalgene_vid`, a hand-held bottle indoors) misses 12 of 13. It sits entirely in val
+    because of the grouped split, which is exactly the generalisation gap the original split hid.
+  - False positives cluster on a blue barrel, product-page colour swatches, and collages.
+- Box size barely matters on val (miss rate 17–19% across buckets), unlike the train hard examples. One reading:
+  val misses are dominated by unseen contexts rather than by size.
+- Limitations:
+  - Buckets are small (e.g. 20 GT boxes in "bright"), so the rates carry wide intervals.
+  - The thresholds for "dark" and "bright" were set from the audit, not tuned.

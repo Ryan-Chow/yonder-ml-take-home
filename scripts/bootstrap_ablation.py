@@ -116,6 +116,27 @@ def main():
         md.append(f"| {k} − baseline | " + " | ".join(cells) + " |")
     md += ["", "`*` = 95% CI excludes zero."]
 
+    names = list(per_img)
+    md += ["", "## All pairwise differences (row minus column), mAP50 and mAP50-95", "",
+           "Used for the shipping decision: the pre-registered rule (DEV_NOTES) was to ship the arm with the best "
+           "mAP50-95 among arms whose mAP50 is not significantly below the best arm's mAP50.", "",
+           "| row − column | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
+    res["pairwise"] = {}
+    for r in names:
+        cells = []
+        for c in names:
+            if r == c:
+                cells.append("–")
+                continue
+            parts = []
+            for m in ("mAP50", "mAP50-95"):
+                d = boot[r][m] - boot[c][m]
+                lo, hi = ci(d)
+                parts.append(f"{point[r][m] - point[c][m]:+.3f} [{lo:+.3f}, {hi:+.3f}]{'*' if lo > 0 or hi < 0 else ''}")
+                res["pairwise"][f"{r}-{c}:{m}"] = {"diff": point[r][m] - point[c][m], "ci": [lo, hi]}
+            cells.append("<br>".join(parts))
+        md.append(f"| {r} | " + " | ".join(cells) + " |")
+
     if all(k in per_img for k in ARMS):
         md += ["", "## 2x2 main effects (averaged over the other factor)", "",
                "| effect | " + " | ".join(METRICS) + " |", "|---|" + "---|" * len(METRICS)]

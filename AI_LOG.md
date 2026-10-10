@@ -54,3 +54,5 @@ explaining results, and reviewing my write-up.
 
 ## 4. Write-up
 - **Asked:** Claude chat to critique my METHODOLOGY draft and explain things I didn't fully understand (mAP50 vs mAP50-95).
+- **Kept / changed:** None
+- **AI error:** None, used only for explanation

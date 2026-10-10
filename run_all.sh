@@ -62,7 +62,7 @@ if [ "$DEVICE" = "mps" ]; then python scripts/evaluate.py; else python scripts/e
 step "8/9 error analysis, hard examples, video test, inference demo"
 python scripts/error_analysis.py >/dev/null && echo "results/errors.md written"
 python scripts/hard_examples.py >/dev/null && echo "results/hard_examples.md written"
-python scripts/video_test.py --every 3 >/dev/null && echo "results/video.md written (uses data/video/test.mov if present)"
+python scripts/video_test.py --every 20 >/dev/null && echo "results/video.md written (media/test_video.mp4, or data/video/test.mov if present)"
 python predict.py data/split/valid/images outputs/predictions --save-vis
 ls outputs/predictions/*.txt | head -3 || true
 echo "first prediction file:"; head -5 "$(ls outputs/predictions/*.txt | head -1)" || true

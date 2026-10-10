@@ -1,5 +1,6 @@
 """Run the detector on frames of a video (README Part 1, item 6).
 
+    python scripts/video_test.py media/test_video.mp4 --every 20   # the committed phone video
     python scripts/video_test.py data/video/test.mov --every 10
     python scripts/video_test.py --every 3              # no real video: builds a stand-in clip from val images
 
@@ -34,7 +35,8 @@ from src.infer import detect, load_model, uses_clahe  # noqa: E402
 
 RESULTS = ROOT / "results"
 SOURCE: dict[int, str] = {}  # stand-in clip: frame index -> source val image
-REAL_VIDEO = ROOT / "data" / "video" / "test.mov"
+REAL_VIDEO = ROOT / "data" / "video" / "test.mov"     # drop-in location for a new video (git-ignored)
+COMMITTED_VIDEO = ROOT / "media" / "test_video.mp4"  # Ryan's phone video, re-encoded H.264, metadata/audio stripped
 DEMO_VIDEO = ROOT / "data" / "video" / "demo_from_val.mp4"
 BLUE, ORANGE, INK, MUTED = "#2a78d6", "#eb6834", "#0b0b0b", "#52514e"
 
@@ -85,7 +87,7 @@ def main():
     conf = a.conf if a.conf is not None else json.loads((RESULTS / "threshold.json").read_text())["conf"]
 
     gt = None
-    video = a.video or (REAL_VIDEO if REAL_VIDEO.exists() else None)
+    video = a.video or next((v for v in (REAL_VIDEO, COMMITTED_VIDEO) if v.exists()), None)
     if video is None:
         video = DEMO_VIDEO
         gt = build_demo_clip(DEMO_VIDEO)

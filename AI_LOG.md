@@ -535,7 +535,7 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
   - Buckets are small (e.g. 20 GT boxes in "bright"), so the rates carry wide intervals.
   - The thresholds for "dark" and "bright" were set from the audit, not tuned.
 
-## 11. Video test (stand-in clip; real video pending)
+## 11. Video test (stand-in clip, then Ryan's real video)
 
 **What was asked:** Step 10 and README Part 1.6: `scripts/video_test.py <video> --every N` writes annotated frames
 (≤30 in git) and a summary. If `data/video/test.mov` is absent, it tests on a clip built from val images and notes
@@ -570,8 +570,16 @@ that the real video is pending.
     0.46, only after the clip's zoom and brightening). The other is a "bottle" box on a stack of red bricks (conf
     0.50).
 - **This is not the README's real-world test.** The frames are val images with synthetic blur and exposure, not a
-  phone video of a mallet stand-in outdoors. To complete it, record the video and run
-  `python scripts/video_test.py data/video/test.mov --every 10`. Nothing else needs to change.
+  phone video.
+- **Update, real video.** Ryan later filmed a 15 s indoor clip with a water bottle and a blue hair dryer as the
+  mallet stand-in.
+  - I re-encoded it to `media/test_video.mp4`: 44 MB down to 4.9 MB, iPhone metadata (incl. GPS) and audio stripped.
+  - The script now uses that file by default.
+  - Result: "mallet" was never predicted (0/46 frames); the dryer was called "bottle" several times instead. The real
+    bottle was found for the first ~7 s and then mostly missed at steep angles, under blur, and in glare (28/46
+    frames). There were false "bottle" boxes on a standing fan.
+  - The re-encode itself changed the bottle count from 31 to 28 and removed one croc false positive. I report the
+    committed file's numbers.
 
 ## 12. Hard-example mining (stretch)
 
@@ -707,7 +715,7 @@ choice and finding.
   - CLAHE showed no measurable benefit.
   - The task's prescribed recipe was not the best arm.
   - The shipped model was picked by a tie-break among statistically indistinguishable arms.
-  - The real video test is still pending.
+  - The real video test was still pending at that point (since run; see entry 11).
   - Single seeds; the threshold is tuned on val.
 
 ## 16. Final checks and push

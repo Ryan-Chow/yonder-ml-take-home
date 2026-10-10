@@ -83,7 +83,7 @@ SKIP_TRAIN=1 ./run_all.sh    # same, but evaluates the committed weights instead
 | evaluation (CPU) | `python scripts/evaluate.py` | `results/metrics.md`, `metrics.json`, `threshold.json`, PR curves, confusion matrix |
 | error analysis | `python scripts/error_analysis.py` | `results/errors.md`, `results/errors/` (every mistake) |
 | hard examples | `python scripts/hard_examples.py` | `results/hard_examples.md`, `.csv`, `.jpg` |
-| video | `python scripts/video_test.py data/video/test.mov --every 10` | `results/video.md`, `results/video/` |
+| video | `python scripts/video_test.py media/test_video.mp4 --every 20` | `results/video.md`, `results/video/` |
 | efficiency | `python scripts/benchmark.py` | `results/efficiency.md` |
 | tests | `python -m pytest -q` | 28 tests, covering:<br>- output format<br>- training PNGs equal inference pixels<br>- matcher<br>- AP equal to Ultralytics<br>- `predict.py` reproduces the reported metrics |
 
@@ -253,19 +253,36 @@ What the data shows, for the shipped model at 0.426 on grouped val:
     they produce a disproportionate share of the errors.
   - **Light and dark extremes.** CLAHE improves local contrast, but it cannot recover clipped or near-black pixels.
 
-### 2.7 Video test (stand-in, real video pending)
+### 2.7 Video test
 
-- No phone video was available when this ran. `scripts/video_test.py` therefore built a 1280×720 stand-in clip from
-  30 grouped-**val** images, with simulated zoom, motion blur, and exposure drift.
-- On it, the shipped model detects the bottle in 83% of frames where one is present and the mallet in 94%.
-- Detections rarely flicker within a shot: 0% for mallet and 7% for bottle.
-- I traced every "detected but absent" frame to its source:
-  - the mislabelled `t_bot_mal581`, where the model is right;
-  - a "bottle" box on a blue barrel, appearing only once the clip's zoom and exposure drift kick in;
-  - a "bottle" box on a stack of red bricks.
-- **This is not the real out-of-distribution test the README asks for.** To run it, record a short video of a
-  mallet-like object outdoors, save it as `data/video/test.mov`, and run
-  `python scripts/video_test.py data/video/test.mov --every 10`.
+**The real video** is `media/test_video.mp4`: Ryan's 15 s phone clip.
+- Indoors on a concrete floor, portrait 1080×1920 at 60 fps.
+- Objects: a white water bottle, and a **blue hair dryer** as the mallet stand-in (no mallet was available).
+- Distractors: crocs, a backpack, a standing fan, chair legs.
+- The last seconds show neither object.
+- Re-encoded to H.264 with metadata (incl. GPS) and audio stripped.
+
+To reproduce: `python scripts/video_test.py media/test_video.mp4 --every 20` (3 frames/s, 46 frames;
+`results/video.md`, `results/video/`).
+
+- **The mallet stand-in was never detected as a mallet (0 of 46 frames).** It was called "bottle" in about 6 of the
+  30 saved frames instead. In training every mallet is the same orange rubber mallet, so the model seems to have
+  learned "orange mallet", not "hammer-shaped object". A blue hair dryer is a hard stand-in, but the result fits the
+  error analysis: the model leans on colour.
+- **The real bottle is found well for the first ~7 s** (mid-distance and close).
+- **It is then mostly missed**, at steep top-down angles, with motion blur, and near the bright ceiling-light
+  reflection. Overall, "bottle" fires in 28 of 46 frames, and presence flickers between consecutive frames 24% of
+  the time.
+- **False "bottle" boxes:** the white standing fan (first frames) and the hair dryer. The empty-floor frames at the
+  end are clean.
+- **Sensitive to small pixel changes.** On the original 44 MB iPhone file the bottle count was 31/46 rather than
+  28/46, and one extra false positive on a croc appeared at the end.
+- **Verdict:** outside the clean training distribution the detector is usable for the bottle at moderate distance,
+  and not robust to viewpoint, blur, or glare. For the mallet class it only knows the orange mallet. This test is
+  indoors and short-range, so it says nothing yet about distant objects outdoors.
+- **Earlier stand-in:** before the real video existed, a clip built from 30 grouped-val images with simulated blur
+  and exposure gave 83% bottle and 94% mallet frame recall. The gap to the real video shows how much easier
+  in-distribution images are.
 
 ### 2.8 Stretch goals
 
@@ -293,8 +310,9 @@ What the data shows, for the shipped model at 0.426 on grouped val:
 
 ## 3. Known limitations
 
-- **The real video test hasn't been run.** Only the val-derived stand-in exists (2.7), so out-of-distribution
-  robustness is still unmeasured. This is the most important gap.
+- **The video test is narrow.** It is one 15 s indoor clip, the mallet stand-in is a blue hair dryer (no mallet was
+  available), and everything is within ~2 m. Outdoor, distant, and true-mallet performance are still unmeasured.
+  This is the most important gap.
 - **The uncertainty estimates are incomplete.** Each ablation arm is a single training run (seed 0), so the
   confidence intervals cover val-set noise but not training-seed noise.
   - MPS training is not bit-reproducible: PyTorch has no deterministic MPS kernel for two operations used here.
@@ -317,7 +335,7 @@ What the data shows, for the shipped model at 0.426 on grouped val:
   - The full-training path of `run_all.sh` as one script (each step was run separately).
   - `colab.ipynb`.
 - **What I'd do next, in order:**
-  1. Record the real video.
+  1. Film the real mallet (or an orange stand-in) outdoors, at rover height, at several distances.
   2. Fix the label errors.
   3. Run multiple seeds.
   4. Collect small/distant and hard-negative data per the hard-example plan.

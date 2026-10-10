@@ -548,13 +548,17 @@ that the real video is pending.
   close the misses were.
 - Building this test exposed the aspect-ratio mismatch fixed in `fb3a529` (stretch vs. letterbox). The boxes on a
   1280×720 frame were checked by eye to sit on the objects.
+- **An unverified claim, corrected later.** I first wrote that both rooftop "bottle detected but absent" frames were
+  the blue barrel. Fact-checking METHODOLOGY.md, I rendered both source images and the actual clip frames. Only one
+  is the barrel; the other is a stack of red bricks.
 
 **Verification & final review:**
 - Shipped model on the stand-in: bottle found in 40 of 48 frames where present (83%), mallet in 45 of 48 (94%).
 - The "detected but absent" frames trace back to:
   - `t_bot_mal581`, the mislabelled mallet: the model is right.
-  - Two rooftop frames from the `20231021` session, with the same blue-barrel false positive seen in the error
-    analysis.
+  - Two rooftop frames from the `20231021` session. One is a "bottle" box over the blue barrel (frame 105, conf
+    0.46, only after the clip's zoom and brightening). The other is a "bottle" box on a stack of red bricks (conf
+    0.50).
 - **This is not the README's real-world test.** The frames are val images with synthetic blur and exposure, not a
   phone video of a mallet stand-in outdoors. To complete it, record the video and run
   `python scripts/video_test.py data/video/test.mov --every 10`. Nothing else needs to change.
@@ -661,3 +665,37 @@ a GPU.
   - `colab.ipynb` was never executed. I have no Colab or CUDA access here; it was only checked to be valid JSON with
     the same commands.
   - A real Roboflow download.
+
+## 15. METHODOLOGY.md and a fact-check of the write-up
+
+**What was asked:** Step 14: complete "How to run" (commands, Python and macOS versions, env var name, exact
+inference command, threshold), and write the thought-process and methodology sections with clear rationale for each
+choice and finding.
+
+**What was kept vs. rewritten, and why:**
+- "How to run" was drafted while training ran. The results sections were written only after the shipping decision,
+  so they describe the model that actually ships.
+- Every number was copied from a generated results file.
+- I then re-read the document against the data, claim by claim, before committing.
+
+**What the AI got wrong / had to be caught** (all by the fact-check pass):
+- "Every run hit its best epoch between 55 and 58": wrong. The leak run's best epoch was 60, its last. Now "55–60;
+  the leak run was still improving".
+- "8% of train images are bright": that is the all-data figure; train is 7%. "39% carry rotation corners" is the
+  train figure; overall it is 38%.
+- "Every 'detected but absent' video frame is the mislabel or the blue barrel": only partly true. Rendering the
+  actual frames showed one is the barrel and one is a stack of red bricks. The same error was in AI_LOG entry 11 and
+  is corrected there.
+- **A bug in the error analysis**, found while re-checking the blue-barrel claim. A "bottle" box over the barrel
+  overlapped the *mallet* GT lying on it, so it was counted as "poor localisation". Now it is "overlaps a
+  different-class object" (`c1c01dc`).
+
+**Verification & final review:**
+- Every number in METHODOLOGY.md was cross-checked against the generated files: `metrics.md`, `ablation.md`,
+  `audit.md`, `errors.md`, `video.md`, `efficiency.md`, `hard_examples.md`.
+- The document says plainly what is weak:
+  - CLAHE showed no measurable benefit.
+  - The task's prescribed recipe was not the best arm.
+  - The shipped model was picked by a tie-break among statistically indistinguishable arms.
+  - The real video test is still pending.
+  - Single seeds; the threshold is tuned on val.

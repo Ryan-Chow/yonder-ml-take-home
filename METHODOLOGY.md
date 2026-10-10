@@ -4,7 +4,7 @@ Mallet / bottle detector for the Yonder rover: YOLOv8n trained on the 999-image 
 leak-free grouped split, CLAHE preprocessing, an ablation with uncertainty estimates, and error analysis.
 
 > **Who wrote this.** The whole submission (code, experiments, this document) was produced by Claude Code (an AI
-> coding agent) from one autonomous prompt by Ryan Chow. `AI_LOG.md` gives the full prompt and records every
+> coding agent) from one autonomous prompt by Ryan Chow. `docs/AGENT_RUN_LOG.md` gives the full prompt and records every
 > mistake that was caught along the way.
 
 ## 1. How to run it
@@ -66,7 +66,7 @@ SKIP_TRAIN=1 ./run_all.sh    # same, but evaluates the committed weights instead
   minutes per run.
 - `colab.ipynb` runs the same pipeline on a Colab GPU and asks for the key with `getpass`.
 - I checked `SKIP_TRAIN=1 ./run_all.sh` in a fresh `git clone`. It reproduced every committed result file byte
-  for byte; see AI_LOG entry 14.
+  for byte; see `docs/AGENT_RUN_LOG.md` entry 14.
 - The efficiency study is also separate, takes about 10 min, and must run with nothing else using the machine:
   `python scripts/benchmark.py`.
 

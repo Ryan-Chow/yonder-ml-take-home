@@ -270,3 +270,33 @@ lighting stats, a GT sample sheet, and a leakage check that groups images by ori
   - The 30 s timestamp window and the gap ≤ 2 were chosen by eye, not tuned.
 - Lighting: 15% of train images are dark (L<80), 7% are bright (L>170), 13% are low-contrast (std L < 40), and
   about 39% carry Roboflow rotation corners. This spread is the justification for CLAHE in step 5.
+
+## 5. Group-aware stratified split
+
+**What was asked:** Step 4: a group-aware, class-stratified ~80/20 split with a fixed seed, written to
+`data/split/` with a `data.yaml` that has no `test:` line, while keeping the original split for comparison.
+
+**What was kept vs. rewritten, and why:**
+- The split pools all 999 images, reuses `build_groups` from step 4, and searches 5000 seeded random group orders.
+  It keeps the order whose val set is closest to 20% of each class's images, 20% of each class's boxes, and 20% of
+  all images.
+- Exact stratified group k-fold is overkill for two classes. The greedy fill plus random search reached a balance
+  cost of 0.005.
+- `data/orig/data.yaml` points at the untouched Roboflow split, so the leakage comparison needs no copies.
+- I also changed the leakage measurement the prompt specified. "Final model on the original split" would score a
+  grouped-trained model on images that are mostly in its *own* training set, which measures memorisation. Instead,
+  run (c) trains the final config on the original split, and its val score is broken down into leaked and clean
+  images. `results/split_manifest.csv` carries the per-image `orig_val_has_train_sibling` flag for that.
+
+**What the AI got wrong / had to be caught:** Nothing failed in this step. The `assert` that no group straddles the
+split passed on the first run, and an independent re-check from the CSV agreed.
+
+**Verification & final review:**
+- New split: train 800 / val 199. Val holds 108 of the 539 images containing a bottle (20.0%), 108 of the 536
+  containing a mallet (20.1%), 138 of 685 bottle boxes, and 108 of 537 mallet boxes.
+- 0 groups straddle the split (checked by the in-script assert and again from the CSV).
+- The manifest flags 107 original-val images as leaked, matching the audit.
+- The manifest MD5 is identical across three runs, including one with the phash cache deleted.
+- 304 images changed split relative to Roboflow's.
+- Caveat: the groups are only as good as the rules from step 4. Same-place photos with unrelated filenames can
+  still sit on both sides, so grouped-val scores may still be slightly optimistic.

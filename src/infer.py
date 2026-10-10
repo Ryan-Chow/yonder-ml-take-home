@@ -19,6 +19,16 @@ NMS_IOU = 0.7  # Ultralytics default for both val and predict, so predict.py mat
 MAX_DET = 300
 
 
+def is_finished(weights: str | Path) -> bool:
+    """True only for a checkpoint whose training run has ended. Ultralytics writes best.pt every epoch while
+    training (optimizer state included) and strips the optimizer only at the end, so this tells a final checkpoint
+    from an in-progress one."""
+    import torch
+
+    p = Path(weights)
+    return p.exists() and torch.load(p, map_location="cpu", weights_only=False).get("optimizer") is None
+
+
 def load_model(weights: str | Path):
     from ultralytics import YOLO
 

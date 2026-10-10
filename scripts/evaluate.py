@@ -27,7 +27,7 @@ import yaml  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.data_utils import CLASS_NAMES, ROOT, load_split  # noqa: E402
-from src.infer import IMGSZ, NMS_IOU, detect, load_model  # noqa: E402
+from src.infer import IMGSZ, NMS_IOU, detect, is_finished, load_model  # noqa: E402
 from src.matching import confusion  # noqa: E402
 
 RESULTS = ROOT / "results"
@@ -166,8 +166,8 @@ def main():
         if run not in a.runs:
             continue
         w = ROOT / cfg["weights"]
-        if not w.exists():
-            print(f"skip {run}: {w} missing")
+        if not is_finished(w):
+            print(f"skip {run}: {w} missing or its training run has not finished")
             continue
         res[run] = ultra_val(w, ROOT / cfg["data"], "cpu", f"{run}_cpu")
         res[run]["train"] = train_summary(run)

@@ -558,3 +558,30 @@ that the real video is pending.
 - **This is not the README's real-world test.** The frames are val images with synthetic blur and exposure, not a
   phone video of a mallet stand-in outdoors. To complete it, record the video and run
   `python scripts/video_test.py data/video/test.mov --every 10`. Nothing else needs to change.
+
+## 12. Hard-example mining (stretch)
+
+**What was asked:** Step 12: rank train images by low GT confidence and misses, make a contact sheet, and write
+`results/hard_examples.md` grouped by failure type with a data-collection prioritisation strategy.
+
+**What was kept vs. rewritten, and why:**
+- `scripts/hard_examples.py` (`d52bbeb`) gives every GT box a "GT confidence" (best same-class prediction at
+  IoU ≥ 0.5). It sorts each failure into missed, low confidence, mislocalised, class confusion, or false alarm, and
+  adds a **label-suspect** flag for confident disagreements with the labels.
+- The first version had no prioritisation strategy, which the prompt requires. I caught the gap when reviewing the
+  output against the step list. The strategy section is now *generated* from the measured rates and the val error
+  analysis rather than written as fixed text.
+
+**What the AI got wrong / had to be caught:**
+- The ranking formula weights false alarms (+0.5 each). In the interim run, an image with two confident "false
+  alarms" outranked fully missed objects.
+- Looking at it on the contact sheet, those "false alarms" were **real, unlabelled bottles** (`IMG_9183`). That is
+  why label suspects get their own section and are priority 1 (fix labels before collecting more data).
+
+**Verification & final review:**
+- Shipped model: 36 of 800 train images still have a failure despite having been trained on.
+- Images with a small object (<32 px) are hard 21% of the time vs. 2% otherwise. Images with both classes are hard
+  24% vs. 3%.
+- I checked the label suspects by eye on the contact sheet.
+- Limitation: training images are optimistic (the model saw them). Running the same ranking on new, unlabelled rover
+  footage would be the real active-learning step; the strategy describes that loop.

@@ -78,6 +78,68 @@ def analyse(G, P, thr):
             "suspects": suspects}
 
 
+def _rate(rows, hard, key, value):
+    tot = sum(r[key] == value for r in rows)
+    return sum(r[key] == value for r in hard) / max(tot, 1), tot
+
+
+def strategy(rows, hard, sus) -> list[str]:
+    """Data-collection priorities, computed from the train hard examples and (if present) the val error analysis."""
+    small, n_small = _rate(rows, hard, "size", "small (<32px)")
+    med, _ = _rate(rows, hard, "size", "medium (32-96px)")
+    both, n_both = _rate(rows, hard, "classes", "bottle+mallet")
+    single = sum(r["classes"] != "bottle+mallet" for r in hard) / max(sum(r["classes"] != "bottle+mallet"
+                                                                         for r in rows), 1)
+    val = {}
+    ef = RESULTS / "errors.json"
+    if ef.exists():
+        errs = json.loads(ef.read_text())["errors"]
+        val["fn_by_light"] = Counter(e["light"] for e in errs if e["type"] == "fn")
+        val["fn_by_family"] = Counter(e["family"] for e in errs if e["type"] == "fn")
+        val["fp_by_family"] = Counter(e["family"] for e in errs if e["type"] == "fp")
+    out = ["## Data-collection priorities", "",
+           "Ordered by expected value per labelling hour, using the train hard examples above and the val errors in "
+           "`results/errors.md`. The point is to collect *specific* data for the failure modes we can see, not more "
+           "of what the model already handles (most medium-sized, single-object outdoor shots are already easy).", "",
+           f"1. **Fix labels before collecting anything.** {len(sus)} train images have confident detections of "
+           "objects that carry no label, and the val error analysis found mallets labelled as bottles "
+           "(`t_bot_mal578`, `t_bot_mal581`). A wrong label teaches the wrong thing no matter how much new data "
+           "is added. Cost: minutes. Re-check the label-suspect list and every wrong-class error image.",
+           f"2. **Small, distant objects.** Images whose smallest object is under 32 px are hard "
+           f"{small * 100:.0f}% of the time ({n_small} images) vs {med * 100:.0f}% for 32–96 px. On the rover, the "
+           "mallet has to be found *before* the rover is close, so this is the operating regime that matters. "
+           "Collect: the mallet and bottles placed 3–15 m from a rover-height camera, on the competition-like "
+           "terrain (dirt, gravel, scrub), several headings. Consider also training at imgsz 640 for small "
+           "objects (see `results/efficiency.md` for the latency cost).",
+           f"3. **Scenes with several objects.** Images with both classes are hard {both * 100:.0f}% of the time "
+           f"({n_both} images) vs {single * 100:.0f}% for single-class images. Part of this is missing labels "
+           "(priority 1), the rest is crowding and small size. Collect: multi-object scenes with distractors "
+           "(other bottles, orange tools, cans), and label *every* instance."]
+    if val:
+        dark = sum(v for k, v in val["fn_by_light"].items() if k.startswith("dark"))
+        bright = sum(v for k, v in val["fn_by_light"].items() if k.startswith("bright"))
+        fam_fn = ", ".join(f"`{k}` {v}" for k, v in val["fn_by_family"].most_common(3))
+        fam_fp = ", ".join(f"`{k}` {v}" for k, v in val["fp_by_family"].most_common(3))
+        out += [f"4. **Exposure extremes and unseen contexts (from the val errors).** {dark} of the val misses are "
+                f"in dark images and {bright} in bright ones; by source the most misses come from {fam_fn}. "
+                "Collect: dawn/dusk, harsh midday sun with hard shadows, backlit shots, and the objects partly "
+                "occluded (held, half-buried, behind scrub), all at rover height.",
+                f"5. **Hard negatives.** Most val false positives come from {fam_fp}. Collect rover-terrain images "
+                "*without* the objects but with look-alikes (blue barrels/cans, orange debris, shadows) and add them "
+                "as background images (empty label files) so the model learns what is *not* a bottle."]
+    out += ["6. **De-prioritise / drop off-domain data.** Product-page screenshots, white-background collages "
+            "(`Untitled-drawing`) and studio product shots are a web-scrape domain the rover will never see; their "
+            "errors (tiny thumbnails, colour swatches, extreme close-ups) are not worth fixing with more of the "
+            "same. Measure the val score without them before deciding to remove them from training.",
+            "7. **Close the loop (active learning).** Run the model over unlabelled rover footage and send for "
+            "labelling the frames where (a) max confidence falls in the uncertain band 0.2–0.6, or (b) a "
+            "detection flickers on and off between neighbouring frames (`scripts/video_test.py` measures this). "
+            "After each labelled batch, re-run `scripts/hard_examples.py` and `scripts/error_analysis.py` and "
+            "re-rank these priorities. Always add new data by *session* to train or val, never split a session "
+            "(the leakage lesson from `results/audit.md`).", ""]
+    return out
+
+
 def main():
     import argparse
 
@@ -161,6 +223,7 @@ def main():
                   for k, r in enumerate(hard[:15], 1)]), "",
            "Contact sheet of the 24 hardest: `results/hard_examples.jpg` (green = GT, red = predictions >= 0.1). "
            "Full ranking: `results/hard_examples.csv`.", ""]
+    md += strategy(rows, hard, sus)
     (RESULTS / "hard_examples.md").write_text("\n".join(md) + "\n")
     print("\n".join(md))
 

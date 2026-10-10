@@ -1,0 +1,37 @@
+rank,image,hardness,worst_gt_conf,types,suspects,classes,size,light,family
+1,Untitled-drawing-26_jpg.rf.992f1ba6f2042d707b5de65861c15eb4.jpg,2.799,0.201,false alarm;low confidence;mislocalised,,bottle,small (<32px),bright (L>170),Untitled-drawing
+2,IMG_9183_jpeg_jpg.rf.e00be9ea0464675e3e35669d8d99f496.jpg,1.284,0.716,false alarm;label suspect,unlabelled bottle? conf 0.89 | unlabelled bottle? conf 0.75,bottle+mallet,small (<32px),normal,IMG
+3,c_mallet_502_JPG_jpg.rf.87fd444b302fcffe62a1627a80b7d0bc.jpg,1.022,0.478,false alarm,,bottle,medium (32-96px),normal,c_mallet
+4,JPEG-image-12_jpeg_jpg.rf.34a7a27a56429e73394256f0ab198be9.jpg,1.000,0.000,low confidence,,bottle+mallet,small (<32px),normal,JPEG-image
+5,JPEG-image-13_jpeg_jpg.rf.a0f05419c76f4dd15fec9cf483610039.jpg,1.000,0.000,low confidence;missed,,bottle+mallet,small (<32px),normal,JPEG-image
+6,JPEG-image-165_jpeg_jpg.rf.b518d7ddde6155721751495cda470825.jpg,1.000,0.000,low confidence;missed,,bottle+mallet,small (<32px),normal,JPEG-image
+7,JPEG-image-250_jpeg_jpg.rf.6dbe29d506bf030e9e0d5fc4aace61cc.jpg,1.000,0.000,missed,,bottle+mallet,small (<32px),bright (L>170),JPEG-image
+8,Untitled-drawing-44_jpg.rf.d3184add65cdc03dfd15c7a5760c8ccb.jpg,1.000,0.000,low confidence;mislocalised,,bottle,small (<32px),bright (L>170),Untitled-drawing
+9,mallet207_jpeg_jpg.rf.52c9938f3bdc969633216818b1094700.jpg,1.000,0.000,low confidence,,mallet,small (<32px),normal,mallet
+10,mallet256_jpeg_jpg.rf.ae9a9eea87ded33f847e5a26e8e5d0cd.jpg,1.000,0.000,class confusion;low confidence,,bottle,small (<32px),normal,mallet
+11,t_bot_mal318_jpeg_jpg.rf.b8e76d7126c161054b84cb45779950d0.jpg,1.000,0.000,missed,,bottle,small (<32px),normal,t_bot_mal
+12,IMG_0796_JPG_jpg.rf.87c53fb83807c9b1135ad54d4a5920c1.jpg,0.990,0.010,low confidence,,bottle+mallet,small (<32px),normal,IMG
+13,mallet314_jpeg_jpg.rf.89316ae5fe9b84628848dd230c876402.jpg,0.982,0.018,low confidence,,bottle,small (<32px),normal,mallet
+14,mallet895_jpeg_jpg.rf.ab8df855dfc24b31f2a33ce1d144c931.jpg,0.945,0.055,low confidence,,bottle+mallet,medium (32-96px),normal,mallet
+15,c_mallet_1177_JPG_jpg.rf.a5e681117f3e4383428efb8a39e1c480.jpg,0.915,0.085,low confidence,,bottle+mallet,small (<32px),normal,c_mallet
+16,c_mallet_716_JPG_jpg.rf.5b30c51700a3e2737c8a5726602ba02b.jpg,0.900,0.100,low confidence,,bottle+mallet,small (<32px),normal,c_mallet
+17,IMG_9178_jpeg_jpg.rf.4a9e3227cd8df500ba9685e029bdf17e.jpg,0.882,0.618,false alarm,,bottle+mallet,small (<32px),normal,IMG
+18,IMG_9175_jpeg_jpg.rf.c542c2177d4b8ff803fc8c8f59a163b1.jpg,0.882,0.618,false alarm;label suspect,unlabelled bottle? conf 0.77,bottle+mallet,small (<32px),normal,IMG
+19,y2mate_com-The-Worlds-Best-Water-Bottle-Nalgene-Wide-Mouth-32-Oz_1080p_mp4-312_jpg.rf.f8dda89880b6a9b97eb31471163a73ab.jpg,0.878,0.122,low confidence,,bottle,large (>=96px),normal,y
+20,IMG_9170_jpeg_jpg.rf.a617803e93289c3fb9bed1cd15536472.jpg,0.871,0.629,false alarm,,bottle+mallet,small (<32px),normal,IMG
+21,mallet109_jpeg_jpg.rf.d0f3ba08156de03614fe6bc797fd6d44.jpg,0.860,0.140,low confidence,,mallet,small (<32px),normal,mallet
+22,mallet415_jpeg_jpg.rf.0d6478fe8203630ceb503c251b4d39ee.jpg,0.783,0.217,low confidence,,bottle,small (<32px),normal,mallet
+23,t_bot_mal181_jpeg_jpg.rf.c572bc21e3877f5f06606517011d1d0e.jpg,0.737,0.763,false alarm,,bottle,small (<32px),normal,t_bot_mal
+24,IMG_0626_JPG_jpg.rf.8c037056f26e9c5aa2f7a6cbdefe61e4.jpg,0.726,0.774,false alarm,,mallet,medium (32-96px),normal,IMG
+25,mallet479_jpeg_jpg.rf.2c6dcf77b1fecd5ec7e1baf7f53e9712.jpg,0.715,0.785,false alarm,,mallet,large (>=96px),normal,mallet
+26,c_mallet_1059_JPG_jpg.rf.a8c4bd508acf493b61950e5ce2913d05.jpg,0.690,0.810,false alarm,,mallet,medium (32-96px),normal,c_mallet
+27,mallet1163_jpeg_jpg.rf.e1f577389d7783455fcf577129c7554c.jpg,0.688,0.812,false alarm,,mallet,small (<32px),normal,mallet
+28,234_jpg.rf.6ab4ad64c0611b91abfb6a85aa722f97.jpg,0.676,0.824,false alarm,,bottle,medium (32-96px),dark (L<80),numeric/other
+29,IMG_0430_JPG_jpg.rf.4cb55b602b05592ebbfc4e509dec9bd6.jpg,0.661,0.839,false alarm,,bottle,medium (32-96px),normal,IMG
+30,IMG_8994_jpeg_jpg.rf.87f495e2e6638f2f9e63b5490c0b178e.jpg,0.654,0.846,false alarm,,bottle,medium (32-96px),normal,IMG
+31,649c2e84e53d64b42bfaaf54_Titan-Nalgene-copy_png_jpg.rf.6bfa397f7aac6acbbaf27b20f18709d8.jpg,0.649,0.351,mislocalised,,bottle,large (>=96px),bright (L>170),numeric/other
+32,JPEG-image-204_jpeg_jpg.rf.b47d46540d6df5cb0b74944ac8ef5500.jpg,0.636,0.364,low confidence,,bottle+mallet,small (<32px),normal,JPEG-image
+33,IMG_0431_JPG_jpg.rf.00f0de4a8541a7be26532767e99ed180.jpg,0.633,0.867,false alarm,,bottle,medium (32-96px),normal,IMG
+34,c_mallet_343_JPG_jpg.rf.8fd5cd4bc789bfa4a6cc6d929cccc641.jpg,0.602,0.898,false alarm,,mallet,small (<32px),normal,c_mallet
+35,mallet-video-Trim_mp4-14_jpg.rf.8e3bc8f153329cdd7247e5277b62e5aa.jpg,0.597,0.403,low confidence,,mallet,large (>=96px),normal,mallet-video-Trim_mp
+36,JPEG-image-197_jpeg_jpg.rf.02f5edd6f8097e5346263205d5a82d4b.jpg,0.586,0.414,mislocalised,,bottle+mallet,small (<32px),normal,JPEG-image

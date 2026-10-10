@@ -158,9 +158,13 @@ def plot_confusion(cm: np.ndarray, conf: float, out: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-mps", action="store_true")
+    ap.add_argument("--runs", nargs="+", choices=list(RUNS), default=list(RUNS),
+                    help="subset of runs to evaluate (e.g. skip 'leak' while it is still training)")
     a = ap.parse_args()
     res = {}
     for run, cfg in RUNS.items():
+        if run not in a.runs:
+            continue
         w = ROOT / cfg["weights"]
         if not w.exists():
             print(f"skip {run}: {w} missing")

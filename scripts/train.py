@@ -3,6 +3,7 @@
     baseline : grouped split, raw images,   Ultralytics default augmentation
     final    : grouped split, CLAHE images, configs/train.yaml `final_aug`      -> copied to weights/best.pt
     leak     : ORIGINAL Roboflow split, CLAHE images, `final_aug`  (only to measure leakage inflation)
+    clahe_only / aug_only : the two missing cells of a 2x2 (CLAHE x custom aug) factorial
 
     python scripts/train.py --run baseline [--device mps] [--epochs N] [--fraction F] [--name NAME]
     python scripts/train.py --run final --smoke        # 1 epoch on ~20 train images, before any full run
@@ -27,6 +28,9 @@ RUNS = {
     "baseline": {"data": "data/split/data.yaml", "aug": False},
     "final": {"data": "data/split_clahe/data.yaml", "aug": True},
     "leak": {"data": "data/orig_clahe/data.yaml", "aug": True},
+    # 2x2 factorial completion: which of the two changes moved the metrics?
+    "clahe_only": {"data": "data/split_clahe/data.yaml", "aug": False},
+    "aug_only": {"data": "data/split/data.yaml", "aug": True},
 }
 
 

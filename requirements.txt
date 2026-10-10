@@ -1,4 +1,23 @@
-# Python 3.12
+# Python 3.12 (tested 3.12.15 on macOS 26.6.2, Apple Silicon)
+# --- sampling scripts + dataset download ---
 roboflow==1.5.0
 python-dotenv==1.2.3
 PyYAML==6.0.3
+truststore==0.10.4
+# --- training / inference ---
+ultralytics==8.4.175
+torch==2.14.1
+torchvision==0.29.1
+numpy==2.3.5
+opencv-python==5.0.0.93
+pillow==12.3.0
+# --- data audit / analysis ---
+ImageHash==4.3.2
+matplotlib==3.11.2
+pandas==3.0.6
+# --- efficiency stretch (ONNX export + INT8 quantization) ---
+onnx==1.23.2
+onnxruntime==1.31.0
+onnxslim==0.1.98
+# --- tests ---
+pytest==9.1.1

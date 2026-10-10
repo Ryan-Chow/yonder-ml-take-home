@@ -5,3 +5,12 @@ data/
 /.venv
 /sampled
 Sampled-YD-Object-Detection-*/
+
+# derived / generated artifacts (reproducible from scripts)
+runs/
+logs/
+*.onnx
+!weights/*.pt
+DEV_NOTES.md
+.DS_Store
+.pytest_cache/

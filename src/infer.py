@@ -29,6 +29,16 @@ def is_finished(weights: str | Path) -> bool:
     return p.exists() and torch.load(p, map_location="cpu", weights_only=False).get("optimizer") is None
 
 
+def uses_clahe(weights: str | Path) -> bool:
+    """Whether a checkpoint was trained on CLAHE images, read from the data path it recorded at training time
+    (data/split_clahe, data/orig_clahe vs data/split). Keeps inference preprocessing tied to the weights, so a model
+    can never be fed differently-preprocessed images than it was trained on."""
+    import torch
+
+    ck = torch.load(Path(weights), map_location="cpu", weights_only=False)
+    return Path(ck["train_args"]["data"]).parent.name.endswith("_clahe")
+
+
 def load_model(weights: str | Path):
     from ultralytics import YOLO
 

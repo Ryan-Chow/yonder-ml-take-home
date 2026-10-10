@@ -1,9 +1,10 @@
 """Train YOLOv8n for the ablation. All runs share configs/train.yaml `common`; only data and augmentation differ.
 
     baseline : grouped split, raw images,   Ultralytics default augmentation
-    final    : grouped split, CLAHE images, configs/train.yaml `final_aug`      -> copied to weights/best.pt
+    final    : grouped split, CLAHE images, configs/train.yaml `final_aug`  (the recipe the task prescribed)
     leak     : ORIGINAL Roboflow split, CLAHE images, `final_aug`  (only to measure leakage inflation)
     clahe_only / aug_only : the two missing cells of a 2x2 (CLAHE x custom aug) factorial
+The arm that ships (weights/best.pt) is chosen by scripts/ship.py from the ablation, not here.
 
     python scripts/train.py --run baseline [--device mps] [--epochs N] [--fraction F] [--name NAME]
     python scripts/train.py --run final --smoke        # 1 epoch on ~20 train images, before any full run
@@ -82,12 +83,8 @@ def main():
     dt = time.time() - t0
     best = ROOT / "runs" / name / "weights" / "best.pt"
     print(f"done in {dt / 60:.1f} min; best weights: {best}")
-    # only the real final run publishes weights; smoke/timing/short runs (custom --name or --epochs) never do
-    if a.run == "final" and name == "final" and not a.smoke and a.epochs is None and a.fraction == 1.0:
-        (ROOT / "weights").mkdir(exist_ok=True)
-        shutil.copy2(best, ROOT / "weights" / "best.pt")
-        print("copied to weights/best.pt")
-
+    # Training never publishes weights/best.pt: which arm ships is decided afterwards from the ablation
+    # (scripts/bootstrap_ablation.py -> scripts/ship.py), not by which run happens to be called "final".
 
 if __name__ == "__main__":
     main()

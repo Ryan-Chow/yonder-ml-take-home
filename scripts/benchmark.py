@@ -27,16 +27,18 @@ import numpy as np  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.data_utils import ROOT, load_split  # noqa: E402
-from src.preprocess import preprocess  # noqa: E402
+from src.infer import uses_clahe  # noqa: E402
+from src.preprocess import preprocess, stretch  # noqa: E402
 
 RESULTS = ROOT / "results"
-VAL_YAML = ROOT / "data" / "split_clahe" / "data.yaml"
+VAL_YAML = ROOT / "data" / "split_clahe" / "data.yaml"  # replaced in main() if the weights don't use CLAHE
+CLAHE = True
 OUT = ROOT / "data" / "export"  # git-ignored
 
 
 def to_tensor(img_bgr: np.ndarray, size: int) -> np.ndarray:
-    """preprocess (stretch 512 + CLAHE) -> resize to `size` -> RGB CHW float32 0-1 with batch dim."""
-    im = preprocess(img_bgr)
+    """preprocess (stretch 512 [+ CLAHE]) -> resize to `size` -> RGB CHW float32 0-1 with batch dim."""
+    im = preprocess(img_bgr) if CLAHE else stretch(img_bgr)
     if size != im.shape[0]:
         im = cv2.resize(im, (size, size), interpolation=cv2.INTER_AREA)
     return np.ascontiguousarray(im[..., ::-1].transpose(2, 0, 1)[None], dtype=np.float32) / 255.0
@@ -132,6 +134,9 @@ def main():
     import torch
     from ultralytics import YOLO
 
+    global VAL_YAML, CLAHE
+    CLAHE = uses_clahe(a.weights)
+    VAL_YAML = ROOT / "data" / ("split_clahe" if CLAHE else "split") / "data.yaml"
     OUT.mkdir(parents=True, exist_ok=True)
     res = {"machine": f"{platform.platform()} / {platform.processor() or platform.machine()}",
            "torch": torch.__version__}

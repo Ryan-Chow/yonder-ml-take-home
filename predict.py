@@ -7,8 +7,9 @@ For every image in <input_dir> writes <output_dir>/<same_stem>.txt, one detectio
     class_id x_center y_center width height confidence
 
 coordinates normalised to 0-1 like the dataset labels; class ids 0 = bottle, 1 = mallet. An image with no
-detections gets an empty file. Images go through src/preprocess.py (CLAHE), the same function used to build the
-training data. Default --conf is read from results/threshold.json (the max-mean-F1 threshold on val).
+detections gets an empty file. Images go through src/preprocess.py (stretch to 512x512, then CLAHE if the weights
+were trained on CLAHE images, which the checkpoint records), the same function used to build the training data.
+Default --conf is read from results/threshold.json (the max-mean-F1 threshold on val).
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ import cv2
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from src.data_utils import CLASS_NAMES, IMG_EXTS  # noqa: E402
-from src.infer import detect, load_model  # noqa: E402
+from src.infer import detect, load_model, uses_clahe  # noqa: E402
 
 COLORS = {0: (214, 120, 42), 1: (52, 104, 235)}  # BGR: bottle blue, mallet orange
 
@@ -65,6 +66,7 @@ def main(argv=None) -> int:
         return 1
     a.output_dir.mkdir(parents=True, exist_ok=True)
     model = load_model(a.weights)
+    clahe = uses_clahe(a.weights)
     n_det = 0
     for k in range(0, len(images), a.batch):
         paths = images[k:k + a.batch]
@@ -77,13 +79,14 @@ def main(argv=None) -> int:
                 continue
             imgs.append(im)
             ok.append(p)
-        for p, im, dets in zip(ok, imgs, detect(model, imgs, conf=conf, clahe=True, device=a.device)):
+        for p, im, dets in zip(ok, imgs, detect(model, imgs, conf=conf, clahe=clahe, device=a.device)):
             lines = [f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f} {s:.4f}" for c, xc, yc, w, h, s in dets]
             (a.output_dir / f"{p.stem}.txt").write_text("\n".join(lines) + ("\n" if lines else ""))
             n_det += len(lines)
             if a.save_vis:
                 cv2.imwrite(str(a.output_dir / f"{p.stem}.jpg"), draw(im, dets))
-    print(f"{len(images)} images -> {a.output_dir} ({n_det} detections, conf >= {conf:.3f}, weights {a.weights})")
+    print(f"{len(images)} images -> {a.output_dir} ({n_det} detections, conf >= {conf:.3f}, "
+          f"CLAHE {'on' if clahe else 'off'}, weights {a.weights})")
     return 0
 
 

@@ -30,7 +30,7 @@ import numpy as np  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from predict import draw  # noqa: E402
 from src.data_utils import CLASS_NAMES, ROOT, load_split  # noqa: E402
-from src.infer import detect, load_model  # noqa: E402
+from src.infer import detect, load_model, uses_clahe  # noqa: E402
 
 RESULTS = ROOT / "results"
 SOURCE: dict[int, str] = {}  # stand-in clip: frame index -> source val image
@@ -112,7 +112,7 @@ def main():
     h, w = frames[0].shape[:2]
 
     # detect low (0.05) so the confidence curve also shows near-misses; counts and drawings use the threshold
-    raw = detect(load_model(a.weights), frames, conf=min(0.05, conf), clahe=True, device="cpu")
+    raw = detect(load_model(a.weights), frames, conf=min(0.05, conf), clahe=uses_clahe(a.weights), device="cpu")
     dets = [D[D[:, 5] >= conf] for D in raw]
     has = {c: np.array([any(int(d[0]) == c for d in D) for D in dets]) for c in range(len(CLASS_NAMES))}
     maxconf = {c: np.array([max([d[5] for d in D if int(d[0]) == c], default=0.0) for D in raw])

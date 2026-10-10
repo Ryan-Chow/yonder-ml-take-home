@@ -14,3 +14,6 @@ logs/
 DEV_NOTES.md
 .DS_Store
 .pytest_cache/
+
+# predict.py demo output from run_all.sh
+outputs/

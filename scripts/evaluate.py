@@ -184,14 +184,16 @@ def main():
             res[f"leak_{tag}"] = ultra_val(ROOT / RUNS["leak"]["weights"], y, "cpu", f"leak_{tag}_cpu")
             res[f"leak_{tag}"]["n_images"] = len(names)
 
-    thr = res["final"]["conf_at_max_mean_f1"]
+    # the shipped threshold is rounded to 3 decimals; every count below uses exactly that value, so predict.py
+    # (which reads threshold.json) reproduces them detection for detection
+    thr = round(res["final"]["conf_at_max_mean_f1"], 3)
     (RESULTS / "threshold.json").write_text(json.dumps({
-        "conf": round(thr, 3), "criterion": "confidence maximising the mean (over classes) F1 on the grouped val "
+        "conf": thr, "criterion": "confidence maximising the mean (over classes) F1 on the grouped val "
         "split, final model, CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
         "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res["final"]["per_class"].items()}}, indent=2))
 
     own = {r: own_counts(ROOT / RUNS[r]["weights"], ROOT / RUNS[r]["raw"], RUNS[r]["clahe"],
-                         res[r]["conf_at_max_mean_f1"]) for r in ABLATION if r in res}
+                         round(res[r]["conf_at_max_mean_f1"], 3)) for r in ABLATION if r in res}
 
     mps = None
     if not a.skip_mps:

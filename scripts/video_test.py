@@ -33,12 +33,16 @@ from src.data_utils import CLASS_NAMES, ROOT, load_split  # noqa: E402
 from src.infer import detect, load_model  # noqa: E402
 
 RESULTS = ROOT / "results"
+SOURCE: dict[int, str] = {}  # stand-in clip: frame index -> source val image
 REAL_VIDEO = ROOT / "data" / "video" / "test.mov"
 DEMO_VIDEO = ROOT / "data" / "video" / "demo_from_val.mp4"
 BLUE, ORANGE, INK, MUTED = "#2a78d6", "#eb6834", "#0b0b0b", "#52514e"
 
 
-def build_demo_clip(out: Path, n_images=30, frames_per_image=9, size=(1280, 720), seed=0) -> dict:
+DEMO_FRAMES_PER_IMAGE = 9
+
+
+def build_demo_clip(out: Path, n_images=30, frames_per_image=DEMO_FRAMES_PER_IMAGE, size=(1280, 720), seed=0) -> dict:
     """Stand-in video from grouped-val images. Returns {frame_index: set(GT classes)} for frame-level recall."""
     rng = np.random.default_rng(seed)
     samples = load_split(ROOT / "data" / "split", "valid")
@@ -64,6 +68,7 @@ def build_demo_clip(out: Path, n_images=30, frames_per_image=9, size=(1280, 720)
             keep = {b.cls for b in s.boxes
                     if abs((b.xc - 0.5) * z) < 0.5 and abs((b.yc - 0.5) * z) < 0.5}
             gt[f] = keep
+            SOURCE[f] = s.name
             f += 1
     vw.release()
     return gt
@@ -106,9 +111,11 @@ def main():
         sys.exit(f"could not read frames from {video}")
     h, w = frames[0].shape[:2]
 
-    dets = detect(load_model(a.weights), frames, conf=conf, clahe=True, device="cpu")
+    # detect low (0.05) so the confidence curve also shows near-misses; counts and drawings use the threshold
+    raw = detect(load_model(a.weights), frames, conf=min(0.05, conf), clahe=True, device="cpu")
+    dets = [D[D[:, 5] >= conf] for D in raw]
     has = {c: np.array([any(int(d[0]) == c for d in D) for D in dets]) for c in range(len(CLASS_NAMES))}
-    maxconf = {c: np.array([max([d[5] for d in D if int(d[0]) == c], default=0.0) for D in dets])
+    maxconf = {c: np.array([max([d[5] for d in D if int(d[0]) == c], default=0.0) for D in raw])
                for c in range(len(CLASS_NAMES))}
 
     out_dir = RESULTS / "video"
@@ -133,7 +140,7 @@ def main():
     ax.set_ylim(0, 1)
     ax.set_xlabel("frame", fontsize=8, color=MUTED)
     ax.set_ylabel("confidence", fontsize=8, color=MUTED)
-    ax.set_title(f"Per-frame max confidence: {video.name}", fontsize=10, loc="left")
+    ax.set_title(f"Per-frame max confidence (detections >= 0.05): {video.name}", fontsize=10, loc="left")
     ax.tick_params(labelsize=7, colors=MUTED)
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
@@ -142,8 +149,13 @@ def main():
     fig.savefig(RESULTS / "video_conf.png", dpi=110)
     plt.close(fig)
 
-    def flicker(x):  # share of consecutive sampled frames where presence toggles
-        return float(np.mean(x[1:] != x[:-1])) if len(x) > 1 else 0.0
+    # stand-in clip: each source image is one 9-frame "shot"; a class appearing/disappearing at a shot cut is
+    # correct, so flicker is only measured between consecutive analysed frames of the same shot
+    shot = np.array([j // DEMO_FRAMES_PER_IMAGE for j in idx]) if is_demo else np.zeros(len(idx), int)
+
+    def flicker(x):  # share of consecutive analysed frames (within a shot) where presence toggles
+        same = shot[1:] == shot[:-1]
+        return float(np.mean((x[1:] != x[:-1])[same])) if same.any() else 0.0
 
     md = ["# Video test", ""]
     if is_demo:
@@ -154,7 +166,7 @@ def main():
                "To run the real test: put the video at `data/video/test.mov` and run "
                "`python scripts/video_test.py data/video/test.mov --every 10`.", ""]
     md += [f"- Source: `{video.relative_to(ROOT) if video.is_relative_to(ROOT) else video}`, {w}x{h}, "
-           f"{fps:.1f} fps, {total} frames; every {a.every}-th frame -> {len(frames)} frames analysed.",
+           f"{fps:.1f} fps, {total} frames; one frame in every {a.every} -> {len(frames)} frames analysed.",
            f"- Pipeline: identical to `predict.py` (stretch to 512x512 + CLAHE), conf >= {conf:.3f}, CPU.", "",
            "| class | frames with >=1 detection | median max-conf when detected | presence flicker |",
            "|---|---|---|---|"]
@@ -162,7 +174,8 @@ def main():
         det_conf = maxconf[c][has[c]]
         md.append(f"| {n} | {has[c].sum()}/{len(frames)} ({has[c].mean() * 100:.0f}%) | "
                   f"{np.median(det_conf) if len(det_conf) else 0:.2f} | {flicker(has[c]) * 100:.0f}% |")
-    md += ["", "Presence flicker = share of consecutive analysed frames where the class appears/disappears.", ""]
+    md += ["", "Presence flicker = share of consecutive analysed frames where the class appears/disappears"
+           + (" (within a shot; changes at the cuts between source images don't count)." if is_demo else "."), ""]
     if is_demo:
         rows = []
         for c, n in enumerate(CLASS_NAMES):
@@ -170,9 +183,13 @@ def main():
             tp = (present & has[c]).sum()
             fp = (~present & has[c]).sum()
             rows.append(f"| {n} | {present.sum()} | {tp} ({tp / max(present.sum(), 1) * 100:.0f}%) | {fp} |")
+        absent_hits = sorted({SOURCE[j] for k, j in enumerate(idx) for c in range(len(CLASS_NAMES))
+                              if has[c][k] and c not in gt[j]})
         md += ["Frame-level check against the source labels (is the class detected in frames where it is present?):",
                "", "| class | frames where present | detected | frames with a detection but class absent |",
-               "|---|---|---|---|", *rows, ""]
+               "|---|---|---|---|", *rows, "",
+               "Source images behind the 'class absent' frames: " + (", ".join(f"`{n[:40]}`" for n in absent_hits)
+                                                                       or "none") + ".", ""]
     md += ["![confidence over time](video_conf.png)", "",
            f"Annotated frames (evenly spaced, {len(keep)} saved): `results/video/`."]
     (RESULTS / "video.md").write_text("\n".join(md) + "\n")

@@ -164,10 +164,20 @@ Print: the final per-class metrics table (baseline vs final), the leakage findin
 ```
 </details>
 
-**What was kept vs. rewritten, and why:** I kept the prompt's step plan as the backbone. Deviations are recorded in
-the entry for the step where they happened.
+**What was kept vs. rewritten, and why:** I kept the prompt's step plan as the backbone. The main deviations, each
+explained in its own entry:
+- The leakage check had to go beyond the `.rf.` stem: the dataset is already de-duplicated by stem, and leakage
+  comes through video frames and capture sequences (entry 4).
+- The leakage *measurement* uses a model trained on the original split rather than scoring the grouped-trained model
+  on the original val (entries 5 and 8).
+- The ablation was extended to a 2×2 with cluster-bootstrap CIs (entry 9).
+- The model that ships is **`clahe_only`**, chosen by a rule written before the last results came in, not the
+  prescribed CLAHE + custom-augmentation recipe, which scored worse (entry 9).
+- Evaluation runs at `rect=False`, the input size that actually ships (entry 8).
+- The real phone video was not available, so only a stand-in was run (entry 11).
+- No Roboflow download was run (no key).
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - Both prompt versions name a repo path that did not match the machine. `~/Projects/yonder-ml-take-home` did not
   exist; the repo from the earlier session lives at `~/Documents/GitHub/yonder-ml-take-home`, so I continued there
   instead of re-cloning.
@@ -176,7 +186,7 @@ the entry for the step where they happened.
 - The earlier prompt assumed `ROBOFLOW_API_KEY` was exported; it was not (checked with `[ -n "$ROBOFLOW_API_KEY" ]`,
   without printing anything).
 
-**Verification & final review:** This entry has nothing to verify on its own; each step below has its own review.
+**How it was verified (verification & final review):** This entry has nothing to verify on its own; each step below has its own review.
 
 ## 2. Environment setup
 
@@ -193,7 +203,7 @@ Added `runs/`, `logs/`, `*.onnx`, `DEV_NOTES.md` to `.gitignore` (`data/` and th
 `opencv-python-headless` installed (roboflow/ultralytics pull in different variants). Only `opencv-python` is pinned
 explicitly; the headless one comes in transitively, so pinning both was unnecessary.
 
-**Verification & final review:** `torch.backends.mps.is_available()` returned `True`; imports of torch, ultralytics,
+**How it was verified (verification & final review):** `torch.backends.mps.is_available()` returned `True`; imports of torch, ultralytics,
 cv2 succeed in the venv. The env var was confirmed missing in the agent shell; the code still only reads it from the
 environment / `.env`.
 
@@ -209,12 +219,12 @@ it is installed. It calls `truststore` before every download, not only after an 
 simpler than catching the error and retrying. I added `tests/test_download.py` so these checks stay verified
 without network access or a key.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - My first `unzip` stopped at an interactive "replace data.yaml?" prompt, because the zip contains `data.yaml`
   **twice**. The non-interactive shell answered "None", nothing was extracted, and the count check printed 0/0. That
   is how it was caught. I compared the two entries' MD5s (identical, `10e8fff4…`) and re-ran with `unzip -o`.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Counts: 800 train images and 800 labels, 199 valid images and 199 labels. `diff` of image stems against label stems
   is empty for both splits, so every image has exactly one label file.
 - `data.yaml` lists `names: ['bottle', 'mallet']` and a `test:` path that does not exist. My own split yaml will
@@ -244,7 +254,7 @@ lighting stats, a GT sample sheet, and a leakage check that groups images by ori
 - The grouping helpers live in `src/data_utils.py` (commit `60856d8`), so the split script uses exactly the
   same definition of "same origin".
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - The prompt's leakage model (shared `.rf.` stems) was wrong for this dataset. I caught it by reading the sampling
   script and confirming 0 stem overlap.
 - My own whole-image phash produced false matches. The pair contact sheet showed rotated, different scenes at
@@ -255,7 +265,7 @@ lighting stats, a GT sample sheet, and a leakage check that groups images by ori
 - A leftover expression in the box-centre scatter (`[...][:0] or [...]`) was nonsense. I caught it re-reading the
   code before the first run and simplified it.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - `audit_samples.jpg`: GT boxes sit on the objects in all 16 images, with correct class colours, so YOLO parsing
   (xc, yc, w, h, normalised) is right.
 - Every one of the 1222 label lines passes strict parsing (5 fields, class ∈ {0,1}, coords ∈ [0,1]). All images
@@ -288,10 +298,10 @@ lighting stats, a GT sample sheet, and a leakage check that groups images by ori
   run (c) trains the final config on the original split, and its val score is broken down into leaked and clean
   images. `results/split_manifest.csv` carries the per-image `orig_val_has_train_sibling` flag for that.
 
-**What the AI got wrong / had to be caught:** Nothing failed in this step. The `assert` that no group straddles the
+**What the AI got wrong that had to be caught:** Nothing failed in this step. The `assert` that no group straddles the
 split passed on the first run, and an independent re-check from the CSV agreed.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - New split: train 800 / val 199. Val holds 108 of the 539 images containing a bottle (20.0%), 108 of the 536
   containing a mallet (20.1%), 138 of 685 bottle boxes, and 108 of 537 mallet boxes.
 - 0 groups straddle the split (checked by the in-script assert and again from the CSV).
@@ -317,7 +327,7 @@ outdoor-oriented augmentations.
 - Augmentation choices, each commented in the yaml: `hsv_v` raised to 0.5, `degrees` 10, `perspective` 0.0005,
   `flipud` 0 (a rover camera is always upright). The baseline run keeps every Ultralytics default.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - My first justification for CLAHE implied it would "normalise lighting". The before/after stats show it does not
   fully do that:
   - Dark images drop from 15% to 7% and low-contrast images from 13% to 5%.
@@ -329,7 +339,7 @@ outdoor-oriented augmentations.
 - Those near-black images have mallet labels that are invisible even to a human. I flagged them as likely
   unavoidable misses (DEV_NOTES).
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Colour preservation was measured, not assumed: the mean |Δa/b| is 0.11/255.
 - Counts after preprocessing: 800/199 images and labels in both `split_clahe` and `orig_clahe`. Label files are
   byte copies, and the yaml has no `test:` key.
@@ -355,7 +365,7 @@ outdoor-oriented augmentations.
 - Baseline and final were trained **in parallel** on MPS. Data loading runs on the main thread (see below), so two
   processes overlap CPU and GPU work. The leak run was queued to start when baseline finished.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **Bug (mine), fixed in `6874b40`:** `train.py` copied `best.pt` to `weights/best.pt` for *any* non-smoke `final`
   run, including the one-epoch timing runs. I caught it when `weights/best.pt` appeared after the timing test.
   Because the CPU timing run was already executing the old code, it wrote the file a **second** time after my first
@@ -373,7 +383,7 @@ outdoor-oriented augmentations.
 - **Prompt assumption that didn't hold:** `workers 4` is silently overridden. Ultralytics 8.4.175 sets
   `workers=0` on CPU and MPS (`engine/trainer.py:178`). I logged this instead of patching the library.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Smoke test: 1 epoch on 20 images, finite losses, and the val set reports 199 images / 246 instances, matching the
   split (138 + 108).
 - MPS took 38 s per epoch vs. 66 s on CPU (wall time, including val), so MPS was kept.
@@ -402,7 +412,7 @@ it). Also the "Machine" rule: run the final evaluation on CPU and compare MPS vs
 - **Rewrite 2** (`bf10f9e`): every reported validation uses `rect=False` (details below).
 - **Rewrite 3** (`6ab47ef`): evaluation counts at the *rounded* threshold that ships (0.441).
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **Evaluated at an input size that never ships.** Ultralytics' default `.pt` validation (`rect=True`) pads
   512×512 images to **544** (`pad=0.5` stride rounding in `data/build.py`).
   - How it was caught: ONNX scored 0.677 mAP50 vs. 0.692 for PyTorch on the same weights.
@@ -422,7 +432,7 @@ it). Also the "Machine" rule: run the final evaluation on CPU and compare MPS vs
   grouped-trained model on images ~80% of which it trained on. I replaced it with run (c): the final recipe trained
   on the original split, scored on its leaked vs. clean val subsets.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - On CPU at 512, final vs. baseline on grouped val: mAP50 0.883 vs. 0.876, mAP50-95 0.490 vs. 0.541, mean F1 0.868
   vs. 0.851.
 - **MPS and CPU validation are identical** to 4 decimals for this model, so the MPS discrepancy the prompt warned
@@ -456,7 +466,7 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
   - Whether a checkpoint needs CLAHE is now read from the data path stored inside it, so `predict.py` can never feed
     a model the wrong preprocessing.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **My CLAHE justification did not survive the ablation.** The CLAHE main effect is −0.011 mAP50 and −0.017
   mAP50-95, both CIs spanning 0. The audit showed lighting varies a lot, but that did not translate into a measurable
   gain on this val set.
@@ -471,7 +481,7 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
 - **A hard-coded conclusion.** `evaluate.py` first printed a hard-coded sentence about which differences are
   significant. A re-run could silently contradict it, so it is now generated from `ablation.json`.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - My AP equals Ultralytics' validator to within 0.002 on every arm, e.g. baseline 0.8746 vs. 0.8764 mAP50.
 - Each checkpoint's embedded `train_args` was checked for its data path, `hsv_v`, and `degrees`, confirming each arm
   trained as intended.
@@ -501,7 +511,7 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
 - It adds a **filename-family** breakdown, because the grouped split puts whole sources in val.
 - It was re-run for the shipped model after the shipping decision. 78 error images are in `results/errors/`.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **A "wrong-class" error turned out to be the label, not the model.** While checking the video stand-in overlay I
   saw an orange mallet labelled "GT: bottle".
   - I traced it to `t_bot_mal581`, then rendered the whole `t_bot_mal57x–58x` session. 578 and 581 are mallets
@@ -510,7 +520,7 @@ judgement and to distrust numbers. The 2×2 extension and the bootstrap were my 
   - The third (an extreme close-up of a mallet handle predicted as bottle) is a genuine error.
 - I kept the causal stories out of `results/errors.md`, as the prompt asked. They are in DEV_NOTES as H1–H6.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Every error image was generated from the same detections `predict.py` produces; `tests/test_consistency.py` ties
   the two together.
 - I reviewed the contact sheet by eye. The patterns in the tables are real:
@@ -541,7 +551,7 @@ that the real video is pending.
     flat zeros.
   - The source image behind each "detected but absent" frame is listed.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - The first report's flicker (15–18%) mostly counted scene cuts, which is a misleading number. Within shots it is
   0–7%.
 - The first confidence plot only showed detections that were already above threshold, so it could not show how
@@ -552,7 +562,7 @@ that the real video is pending.
   the blue barrel. Fact-checking METHODOLOGY.md, I rendered both source images and the actual clip frames. Only one
   is the barrel; the other is a stack of red bricks.
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Shipped model on the stand-in: bottle found in 40 of 48 frames where present (83%), mallet in 45 of 48 (94%).
 - The "detected but absent" frames trace back to:
   - `t_bot_mal581`, the mislabelled mallet: the model is right.
@@ -576,13 +586,13 @@ that the real video is pending.
   output against the step list. The strategy section is now *generated* from the measured rates and the val error
   analysis rather than written as fixed text.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - The ranking formula weights false alarms (+0.5 each). In the interim run, an image with two confident "false
   alarms" outranked fully missed objects.
 - Looking at it on the contact sheet, those "false alarms" were **real, unlabelled bottles** (`IMG_9183`). That is
   why label suspects get their own section and are priority 1 (fix labels before collecting more data).
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Shipped model: 36 of 800 train images still have a failure despite having been trained on.
 - Images with a small object (<32 px) are hard 21% of the time vs. 2% otherwise. Images with both classes are hard
   24% vs. 3%.
@@ -605,7 +615,7 @@ that the real video is pending.
   re-timing.
 - The tradeoff discussion is generated from the measured numbers.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **ONNX vs. PyTorch mAP mismatch** (0.677 vs. 0.692 on interim weights). This was the `rect=True` padding to 544
   described in entry 8, not an export bug: raw outputs matched to 1e-3 and per-image predictions were identical.
 - **Latencies measured during training are worthless.** The dry run showed 107 ms on CPU while training competed
@@ -618,7 +628,7 @@ that the real video is pending.
   - The claim about Rockchip's export cutting the DFL decode out of the graph is from background knowledge and is
     marked "not verified here".
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - 3.14 M params; 5.6 GFLOPs at 512, consistent with YOLOv8n's 8.7 GFLOPs at 640 scaled by (512/640)².
 - ONNX FP32 mAP equals PyTorch exactly.
 - Naive INT8 gives **mAP 0.000**. Keeping the head decode in FP32 gives 0.869 vs. 0.872 mAP50, at 3.6 MB vs.
@@ -640,7 +650,7 @@ a GPU.
 - `evaluate.py` gained a fallback for a fresh clone with no `runs/`: it evaluates the committed weights as arm
   `shipped`.
 
-**What the AI got wrong / had to be caught:**
+**What the AI got wrong that had to be caught:**
 - **My first `run_all.sh` had two bugs:**
   - `${SKIP_LEAK:+…}` printed "leak skipped" even when `SKIP_LEAK=0`.
   - `ls … | head` could kill the script under `pipefail` via SIGPIPE.
@@ -651,7 +661,7 @@ a GPU.
     identify the shipped model.
   - `threshold.json` named a non-existent `runs/shipped/...` path (fixed in `9a76167`).
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - **Fresh-clone test:** I ran `git clone` of the repo into a scratch folder, copied in the dataset (no API key is
   available, so the download step was exercised only on its skip path), and symlinked the venv. Then I ran
   `SKIP_TRAIN=1 ./run_all.sh`.
@@ -678,7 +688,7 @@ choice and finding.
 - Every number was copied from a generated results file.
 - I then re-read the document against the data, claim by claim, before committing.
 
-**What the AI got wrong / had to be caught** (all by the fact-check pass):
+**What the AI got wrong that had to be caught** (all by the fact-check pass):
 - "Every run hit its best epoch between 55 and 58": wrong. The leak run's best epoch was 60, its last. Now "55–60;
   the leak run was still improving".
 - "8% of train images are bright": that is the all-data figure; train is 7%. "39% carry rotation corners" is the
@@ -690,7 +700,7 @@ choice and finding.
   overlapped the *mallet* GT lying on it, so it was counted as "poor localisation". Now it is "overlaps a
   different-class object" (`c1c01dc`).
 
-**Verification & final review:**
+**How it was verified (verification & final review):**
 - Every number in METHODOLOGY.md was cross-checked against the generated files: `metrics.md`, `ablation.md`,
   `audit.md`, `errors.md`, `video.md`, `efficiency.md`, `hard_examples.md`.
 - The document says plainly what is weak:

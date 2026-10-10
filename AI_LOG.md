@@ -435,3 +435,52 @@ it). Also the "Machine" rule: run the final evaluation on CPU and compare MPS vs
   val. Inside the leak model, leaked val images score 0.930 vs. 0.894 for clean ones. That leaked/clean gap is
   confounded by content, as the report states.
 - Limitation: the threshold is chosen on the same val set it is reported on, because there is no test split.
+
+## 9. 2×2 ablation, uncertainty, and which model ships
+
+**What was asked:** Step 6's ablation of (a) baseline vs. (b) final, plus the general instruction to show design
+judgement and to distrust numbers. The 2×2 extension and the bootstrap were my additions.
+
+**What was kept vs. rewritten, and why:**
+- The prescribed two-arm ablation showed final beating baseline by +0.007 mAP50 but losing 0.051 mAP50-95. Two arms
+  cannot say which change (CLAHE or the augmentation) caused what. So I trained the two missing cells, `clahe_only`
+  and `aug_only` (`f31f0f4`).
+- I computed **paired cluster-bootstrap** CIs (`src/apstats.py`, `scripts/bootstrap_ablation.py`).
+- My first bootstrap resampled images. Seeing 12 of 13 frames of one video fail together showed that errors are
+  correlated within a source, so I switched to resampling the 102 same-origin groups (`5578e77`). That widened the
+  CIs about 1.7×.
+- **Shipping decision.** Before `clahe_only`/`aug_only` finished, I wrote a rule in DEV_NOTES: mAP50 is primary,
+  and among arms not significantly below the best mAP50, the best mAP50-95 wins.
+  - Applied mechanically by `scripts/ship.py` (`b12b9ee`), it chooses **`clahe_only`**.
+  - `train.py` no longer publishes weights.
+  - Whether a checkpoint needs CLAHE is now read from the data path stored inside it, so `predict.py` can never feed
+    a model the wrong preprocessing.
+
+**What the AI got wrong / had to be caught:**
+- **My CLAHE justification did not survive the ablation.** The CLAHE main effect is −0.011 mAP50 and −0.017
+  mAP50-95, both CIs spanning 0. The audit showed lighting varies a lot, but that did not translate into a measurable
+  gain on this val set.
+- **The prescribed final recipe is not the best arm.** CLAHE and custom augmentation interact negatively: final
+  scores 0.882/0.490 vs. 0.902/0.521 for aug_only (mAP50/mAP50-95).
+- **Image-level bootstrap understated the uncertainty** (see above). One "significant" result vanished: with
+  B=2000 cluster resamples, final − baseline mAP50-95 is −0.051 [−0.085, +0.004].
+- **AP re-implementation.** My first AP tests encoded the *older* Ultralytics sentinel convention and failed against
+  my code. Reading `compute_ap` in the installed 8.4.175 showed precision drops to 0 right after the last recall. I
+  replaced the hand-computed expectations with a test that compares directly against Ultralytics' function on 50
+  random curves.
+- **A hard-coded conclusion.** `evaluate.py` first printed a hard-coded sentence about which differences are
+  significant. A re-run could silently contradict it, so it is now generated from `ablation.json`.
+
+**Verification & final review:**
+- My AP equals Ultralytics' validator to within 0.002 on every arm, e.g. baseline 0.8746 vs. 0.8764 mAP50.
+- Each checkpoint's embedded `train_args` was checked for its data path, `hsv_v`, and `degrees`, confirming each arm
+  trained as intended.
+- `weights/best.pt` is byte-identical to `runs/clahe_only/weights/best.pt` (`cmp`, plus the SHA-256 in
+  `results/shipped.json`).
+- Honest assessment: clahe_only, aug_only, and final are **statistically indistinguishable** on both metrics. The
+  rule is a principled tie-break, not evidence that clahe_only is better.
+  - clahe_only has the lowest point-estimate F1 of the four (0.844 vs. 0.868 for aug_only and final).
+  - If recall at the threshold mattered more than box tightness, aug_only would be the pick.
+- I kept the pre-registered choice rather than switch after seeing the numbers, because switching would make the
+  "rule" meaningless.
+- Each arm is a single seed, so seed variance is not in these CIs.

@@ -8,22 +8,34 @@ P, R and F1 are each taken at that model's own confidence that maximises mean F1
 
 ## Ablation: per-class results on the grouped (leak-free) val split
 
-| run | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |
-|---|---|---|---|---|---|---|---|---|
-| baseline | bottle | 0.772 | 0.762 | 0.767 | 0.790 | 0.459 | 0.389 | 58/60 |
-| baseline | mallet | 0.944 | 0.929 | 0.936 | 0.963 | 0.623 | 0.389 | 58/60 |
-| baseline | **mean** | 0.858 | 0.845 | 0.851 | 0.876 | 0.541 | 0.389 | 58/60 |
-| final | bottle | 0.819 | 0.754 | 0.785 | 0.797 | 0.417 | 0.441 | 55/60 |
-| final | mallet | 0.958 | 0.944 | 0.951 | 0.968 | 0.563 | 0.441 | 55/60 |
-| final | **mean** | 0.889 | 0.849 | 0.868 | 0.883 | 0.490 | 0.441 | 55/60 |
+2x2 design: CLAHE (yes/no) x augmentation (Ultralytics default / custom outdoor set). **Shipped: `clahe_only`** (chosen by `scripts/ship.py`; rule and bootstrap CIs in `results/ablation.md`).
 
-Final minus baseline (mean over classes): F1 +0.017, mAP50 +0.006, mAP50-95 -0.051.
+| run | data / augmentation | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline | raw images, default augmentation | bottle | 0.772 | 0.762 | 0.767 | 0.790 | 0.459 | 0.389 | 58/60 |
+| baseline | raw images, default augmentation | mallet | 0.944 | 0.929 | 0.936 | 0.963 | 0.623 | 0.389 | 58/60 |
+| baseline | raw images, default augmentation | **mean** | 0.858 | 0.845 | 0.851 | 0.876 | 0.541 | 0.389 | 58/60 |
+| clahe_only **(shipped)** | CLAHE, default augmentation | bottle | 0.747 | 0.746 | 0.747 | 0.773 | 0.442 | 0.426 | 58/60 |
+| clahe_only **(shipped)** | CLAHE, default augmentation | mallet | 0.955 | 0.926 | 0.940 | 0.971 | 0.629 | 0.426 | 58/60 |
+| clahe_only **(shipped)** | CLAHE, default augmentation | **mean** | 0.851 | 0.836 | 0.844 | 0.872 | 0.536 | 0.426 | 58/60 |
+| aug_only | raw images, custom augmentation | bottle | 0.828 | 0.725 | 0.773 | 0.825 | 0.431 | 0.414 | 55/60 |
+| aug_only | raw images, custom augmentation | mallet | 0.971 | 0.954 | 0.962 | 0.981 | 0.609 | 0.414 | 55/60 |
+| aug_only | raw images, custom augmentation | **mean** | 0.900 | 0.839 | 0.868 | 0.903 | 0.520 | 0.414 | 55/60 |
+| final | CLAHE + custom augmentation (the recipe the task prescribed) | bottle | 0.819 | 0.754 | 0.785 | 0.797 | 0.417 | 0.441 | 55/60 |
+| final | CLAHE + custom augmentation (the recipe the task prescribed) | mallet | 0.958 | 0.944 | 0.951 | 0.968 | 0.563 | 0.441 | 55/60 |
+| final | CLAHE + custom augmentation (the recipe the task prescribed) | **mean** | 0.889 | 0.849 | 0.868 | 0.883 | 0.490 | 0.441 | 55/60 |
+
+- clahe_only minus baseline (mean over classes): F1 -0.008, mAP50 -0.005, mAP50-95 -0.005.
+- aug_only minus baseline (mean over classes): F1 +0.016, mAP50 +0.027, mAP50-95 -0.021.
+- final minus baseline (mean over classes): F1 +0.017, mAP50 +0.006, mAP50-95 -0.051.
+
+Paired cluster-bootstrap 95% CIs vs baseline (`results/ablation.md`): significant: aug_only mAP50 +0.028 [+0.000, +0.049]; everything else is within val-set noise.
 
 ![PR curves](pr_curves.png)
 
 ## Deployed threshold
 
-`results/threshold.json`: **conf = 0.441** (max mean F1 on grouped val, final model). Caveat: it is chosen on the same val set the numbers are reported on (there is no separate test set in this 999-image sample), so P/R/F1 are slightly optimistic; mAP is threshold-free.
+`results/threshold.json`: **conf = 0.426** (max mean F1 on grouped val, shipped model `clahe_only`). Caveat: it is chosen on the same val set the numbers are reported on (there is no separate test set in this 999-image sample), so P/R/F1 are slightly optimistic; mAP is threshold-free.
 
 ## Independent cross-check at the deployed threshold
 
@@ -33,39 +45,43 @@ Re-counted with `src/matching.py` (greedy, IoU >= 0.5) by running the *deploymen
 |---|---|---|---|---|---|---|---|---|
 | baseline | bottle | 138 | 105 | 31 | 33 | 0.772 | 0.761 ± 0.071 | 0.766 |
 | baseline | mallet | 108 | 100 | 6 | 8 | 0.943 | 0.926 ± 0.049 | 0.935 |
+| clahe_only | bottle | 138 | 103 | 34 | 35 | 0.752 | 0.746 ± 0.073 | 0.749 |
+| clahe_only | mallet | 108 | 100 | 4 | 8 | 0.962 | 0.926 ± 0.049 | 0.943 |
+| aug_only | bottle | 138 | 100 | 20 | 38 | 0.833 | 0.725 ± 0.075 | 0.775 |
+| aug_only | mallet | 108 | 103 | 3 | 5 | 0.972 | 0.954 ± 0.040 | 0.963 |
 | final | bottle | 138 | 104 | 23 | 34 | 0.819 | 0.754 ± 0.072 | 0.785 |
 | final | mallet | 108 | 102 | 4 | 6 | 0.962 | 0.944 ± 0.043 | 0.953 |
 
-Confusion matrix (final, rows = predicted, cols = true; 'missed' = GT with no prediction, 'background' = prediction on no object):
+Confusion matrix (shipped `clahe_only`, rows = predicted, cols = true; 'missed' = GT with no prediction, 'background' = prediction on no object):
 
 | predicted \ true | bottle | mallet | background |
 |---|---|---|---|
-| bottle | 104 | 0 | 23 |
-| mallet | 2 | 102 | 2 |
-| missed | 32 | 6 | – |
+| bottle | 103 | 1 | 33 |
+| mallet | 2 | 100 | 2 |
+| missed | 33 | 7 | – |
 
-![confusion](confusion_final.png)
+![confusion](confusion_shipped.png)
 
 ## Leakage inflation
 
-Run (c) uses the final recipe on Roboflow's original split. Its val set is broken down by whether each image has a same-origin image in train (results/audit.md). Same model on both subsets; what differs is whether a near-duplicate of the image was in its training set.
+Run `leak` uses the `final` recipe (CLAHE + custom aug) on Roboflow's original split. Its val set is broken down by whether each image has a same-origin image in train (results/audit.md). Same model on both subsets; what differs is whether a near-duplicate of the image was in its training set.
 
 | model / val subset | images | mean P | mean R | mean F1 | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 |
 |---|---|---|---|---|---|---|---|---|
-| (c) leak model, all original val | 199 | 0.935 | 0.877 | 0.904 | 0.914 | 0.558 | 0.850 | 0.977 |
-| (c) leak model, val images WITH train sibling | 107 | 0.938 | 0.910 | 0.923 | 0.930 | 0.568 | 0.871 | 0.989 |
-| (c) leak model, val images WITHOUT sibling | 92 | 0.945 | 0.835 | 0.885 | 0.894 | 0.554 | 0.830 | 0.958 |
-| (b) final model, grouped val | 199 | 0.889 | 0.849 | 0.868 | 0.883 | 0.490 | 0.797 | 0.968 |
+| leak model, all original val | 199 | 0.935 | 0.877 | 0.904 | 0.914 | 0.558 | 0.850 | 0.977 |
+| leak model, val images WITH train sibling | 107 | 0.938 | 0.910 | 0.923 | 0.930 | 0.568 | 0.871 | 0.989 |
+| leak model, val images WITHOUT sibling | 92 | 0.945 | 0.835 | 0.885 | 0.894 | 0.554 | 0.830 | 0.958 |
+| same recipe (`final`) trained/validated on the grouped split | 199 | 0.889 | 0.849 | 0.868 | 0.883 | 0.490 | 0.797 | 0.968 |
 
 - Reported-number inflation from using Roboflow's split: mAP50 +0.031 (original val vs grouped val, same recipe).
 - Within the same model: leaked minus clean subset mAP50 = +0.036. Caveat: the subsets also differ in content (the leaked ones are mostly multi-shot outdoor sessions), so this gap is not *only* leakage.
 
-## MPS vs CPU validation (final model, grouped val)
+## MPS vs CPU validation (shipped `clahe_only`, grouped val)
 
 | device | mean P | mean R | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 | conf@maxF1 |
 |---|---|---|---|---|---|---|---|
-| cpu | 0.8886 | 0.8490 | 0.8826 | 0.4902 | 0.7971 | 0.9681 | 0.441 |
-| mps | 0.8886 | 0.8490 | 0.8826 | 0.4902 | 0.7971 | 0.9681 | 0.441 |
+| cpu | 0.8513 | 0.8362 | 0.8718 | 0.5358 | 0.7727 | 0.9709 | 0.426 |
+| mps | 0.8513 | 0.8362 | 0.8718 | 0.5358 | 0.7727 | 0.9709 | 0.426 |
 
 Max absolute difference in mean mAP50-95: 0.0000. CPU numbers are the ones reported everywhere else.
 

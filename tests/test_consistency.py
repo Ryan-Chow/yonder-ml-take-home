@@ -29,5 +29,6 @@ def test_predict_txt_reproduces_reported_counts(tmp_path):
         txt = (tmp_path / lbl.name).read_text()
         preds.append(np.loadtxt(tmp_path / lbl.name, ndmin=2).reshape(-1, 6) if txt.strip() else np.zeros((0, 6)))
     cm = confusion(preds, gts, nc=2)
-    reported = json.loads(METRICS.read_text())["own_matching"]["final"]["confusion"]
+    m = json.loads(METRICS.read_text())
+    reported = m["own_matching"][m["shipped"]["arm"]]["confusion"]
     assert cm.tolist() == reported

@@ -1,0 +1,19 @@
+{
+  "best_mAP50_arm": "aug_only",
+  "candidates": [
+    "clahe_only",
+    "aug_only",
+    "final"
+  ],
+  "rule": "max mAP50-95 among arms whose mAP50 is not significantly below the best mAP50 arm",
+  "arm": "clahe_only",
+  "metrics": {
+    "mAP50": 0.8726132732900824,
+    "mAP50-95": 0.5362587718778808,
+    "bottle AP50": 0.7741397732358106,
+    "bottle AP50-95": 0.4422016612525478,
+    "mallet AP50": 0.9710867733443542,
+    "mallet AP50-95": 0.630315882503214
+  },
+  "sha256": "fb6ee2269a2fa209358ea050127d096123d9f0af31c16d09b2afa97fdf1a0751"
+}

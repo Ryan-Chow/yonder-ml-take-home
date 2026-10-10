@@ -1,8 +1,9 @@
 {
-  "conf": 0.441,
-  "criterion": "confidence maximising the mean (over classes) F1 on the grouped val split, final model, CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
+  "conf": 0.426,
+  "model": "weights/best.pt = runs/clahe_only/weights/best.pt",
+  "criterion": "confidence maximising the mean (over classes) F1 on the grouped val split, shipped model, CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
   "per_class_f1_at_conf": {
-    "bottle": 0.7849,
-    "mallet": 0.9514
+    "bottle": 0.7467,
+    "mallet": 0.9405
   }
 }

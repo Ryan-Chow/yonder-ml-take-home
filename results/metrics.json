@@ -31,7 +31,75 @@
       "best_epoch": 58,
       "train_minutes": 40.7985
     },
-    "desc": "(a) baseline: grouped split, raw images, default augmentation"
+    "desc": "raw images, default augmentation"
+  },
+  "clahe_only": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.74701348381765,
+        "recall": 0.7463768115942029,
+        "f1": 0.7466950119907281,
+        "mAP50": 0.7727188190376386,
+        "mAP50-95": 0.44239641835039994
+      },
+      "mallet": {
+        "precision": 0.9554988457162855,
+        "recall": 0.9259259259259259,
+        "f1": 0.9404799668591284,
+        "mAP50": 0.9708682417720506,
+        "mAP50-95": 0.6291581120169408
+      }
+    },
+    "mean": {
+      "precision": 0.8512561647669677,
+      "recall": 0.8361513687600644,
+      "f1": 0.8435874894249282,
+      "mAP50": 0.8717935304048445,
+      "mAP50-95": 0.5357772651836703
+    },
+    "conf_at_max_mean_f1": 0.4264264264264264,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/clahe_only_cpu",
+    "train": {
+      "epochs_run": 60,
+      "best_epoch": 58,
+      "train_minutes": 49.975833333333334
+    },
+    "desc": "CLAHE, default augmentation"
+  },
+  "aug_only": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.828037253835856,
+        "recall": 0.7246376811594203,
+        "f1": 0.7728945473510261,
+        "mAP50": 0.825472373540117,
+        "mAP50-95": 0.43109722767921876
+      },
+      "mallet": {
+        "precision": 0.971183810385065,
+        "recall": 0.9537037037037037,
+        "f1": 0.9623643876975121,
+        "mAP50": 0.9812072223135571,
+        "mAP50-95": 0.6091553861649034
+      }
+    },
+    "mean": {
+      "precision": 0.8996105321104605,
+      "recall": 0.8391706924315621,
+      "f1": 0.8676294675242691,
+      "mAP50": 0.903339797926837,
+      "mAP50-95": 0.5201263069220611
+    },
+    "conf_at_max_mean_f1": 0.4144144144144144,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/aug_only_cpu",
+    "train": {
+      "epochs_run": 60,
+      "best_epoch": 55,
+      "train_minutes": 29.91
+    },
+    "desc": "raw images, custom augmentation"
   },
   "final": {
     "per_class": {
@@ -65,7 +133,7 @@
       "best_epoch": 55,
       "train_minutes": 46.7985
     },
-    "desc": "(b) final: grouped split, CLAHE, custom augmentation"
+    "desc": "CLAHE + custom augmentation (the recipe the task prescribed)"
   },
   "leak": {
     "per_class": {
@@ -99,7 +167,7 @@
       "best_epoch": 60,
       "train_minutes": 46.98083333333333
     },
-    "desc": "(c) final recipe trained on the ORIGINAL (leaky) Roboflow split"
+    "desc": "CLAHE + custom augmentation trained on the ORIGINAL (leaky) Roboflow split"
   },
   "leak_leaked": {
     "per_class": {
@@ -157,33 +225,37 @@
     "n_images": 92,
     "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/leak_clean_cpu"
   },
-  "final_mps": {
+  "shipped": {
+    "arm": "clahe_only",
+    "threshold": 0.426
+  },
+  "clahe_only_mps": {
     "per_class": {
       "bottle": {
-        "precision": 0.818884344795003,
-        "recall": 0.7535561705764456,
-        "f1": 0.7848632046509639,
-        "mAP50": 0.7970899756263127,
-        "mAP50-95": 0.4171053676167504
+        "precision": 0.7470138175145082,
+        "recall": 0.7463768115942029,
+        "f1": 0.7466951786968865,
+        "mAP50": 0.7727188190376386,
+        "mAP50-95": 0.44239641835039994
       },
       "mallet": {
-        "precision": 0.9584034194260854,
-        "recall": 0.9444444444444444,
-        "f1": 0.9513727315775701,
-        "mAP50": 0.968105936962624,
-        "mAP50-95": 0.5632649884235346
+        "precision": 0.9554988408118282,
+        "recall": 0.9259259259259259,
+        "f1": 0.940479964483384,
+        "mAP50": 0.9708682417720506,
+        "mAP50-95": 0.6291581120169408
       }
     },
     "mean": {
-      "precision": 0.8886438821105442,
-      "recall": 0.8490003075104451,
-      "f1": 0.868117968114267,
-      "mAP50": 0.8825979562944684,
-      "mAP50-95": 0.4901851780201424
+      "precision": 0.8512563291631683,
+      "recall": 0.8361513687600644,
+      "f1": 0.8435875715901353,
+      "mAP50": 0.8717935304048445,
+      "mAP50-95": 0.5357772651836703
     },
-    "conf_at_max_mean_f1": 0.44144144144144143,
+    "conf_at_max_mean_f1": 0.4264264264264264,
     "n_images": null,
-    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/final_mps"
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/clahe_only_mps"
   },
   "own_matching": {
     "baseline": {
@@ -223,6 +295,88 @@
         [
           31,
           7,
+          0
+        ]
+      ]
+    },
+    "clahe_only": {
+      "per_class": {
+        "bottle": {
+          "tp": 103,
+          "fp": 34,
+          "fn": 35,
+          "precision": 0.7518248175182481,
+          "recall": 0.7463768115942029,
+          "f1": 0.7490909090909091,
+          "n_gt": 138,
+          "recall_95ci": 0.07259221969469745
+        },
+        "mallet": {
+          "tp": 100,
+          "fp": 4,
+          "fn": 8,
+          "precision": 0.9615384615384616,
+          "recall": 0.9259259259259259,
+          "f1": 0.9433962264150944,
+          "n_gt": 108,
+          "recall_95ci": 0.049393003043776015
+        }
+      },
+      "confusion": [
+        [
+          103,
+          1,
+          33
+        ],
+        [
+          2,
+          100,
+          2
+        ],
+        [
+          33,
+          7,
+          0
+        ]
+      ]
+    },
+    "aug_only": {
+      "per_class": {
+        "bottle": {
+          "tp": 100,
+          "fp": 20,
+          "fn": 38,
+          "precision": 0.8333333333333334,
+          "recall": 0.7246376811594203,
+          "f1": 0.7751937984496124,
+          "n_gt": 138,
+          "recall_95ci": 0.07452967717045594
+        },
+        "mallet": {
+          "tp": 103,
+          "fp": 3,
+          "fn": 5,
+          "precision": 0.9716981132075472,
+          "recall": 0.9537037037037037,
+          "f1": 0.9626168224299064,
+          "n_gt": 108,
+          "recall_95ci": 0.03962999820348328
+        }
+      },
+      "confusion": [
+        [
+          100,
+          0,
+          20
+        ],
+        [
+          2,
+          103,
+          1
+        ],
+        [
+          36,
+          5,
           0
         ]
       ]

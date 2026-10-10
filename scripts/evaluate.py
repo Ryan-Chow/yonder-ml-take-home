@@ -32,15 +32,31 @@ from src.matching import confusion  # noqa: E402
 
 RESULTS = ROOT / "results"
 BLUE, ORANGE, GRAY, INK, MUTED = "#2a78d6", "#eb6834", "#8a8984", "#0b0b0b", "#52514e"
-ABLATION = ("baseline", "final")
+ABLATION = ("baseline", "clahe_only", "aug_only", "final")
 RUNS = {
     "baseline": dict(weights="runs/baseline/weights/best.pt", data="data/split/data.yaml", raw="data/split",
-                     clahe=False, desc="(a) baseline: grouped split, raw images, default augmentation"),
-    "final": dict(weights="weights/best.pt", data="data/split_clahe/data.yaml", raw="data/split", clahe=True,
-                  desc="(b) final: grouped split, CLAHE, custom augmentation"),
+                     clahe=False, desc="raw images, default augmentation"),
+    "clahe_only": dict(weights="runs/clahe_only/weights/best.pt", data="data/split_clahe/data.yaml",
+                       raw="data/split", clahe=True, desc="CLAHE, default augmentation"),
+    "aug_only": dict(weights="runs/aug_only/weights/best.pt", data="data/split/data.yaml", raw="data/split",
+                     clahe=False, desc="raw images, custom augmentation"),
+    "final": dict(weights="runs/final/weights/best.pt", data="data/split_clahe/data.yaml", raw="data/split",
+                  clahe=True, desc="CLAHE + custom augmentation (the recipe the task prescribed)"),
     "leak": dict(weights="runs/leak/weights/best.pt", data="data/orig_clahe/data.yaml", raw=None, clahe=True,
-                 desc="(c) final recipe trained on the ORIGINAL (leaky) Roboflow split"),
+                 desc="CLAHE + custom augmentation trained on the ORIGINAL (leaky) Roboflow split"),
 }
+
+
+def shipped_arm() -> str:
+    """The ablation arm whose checkpoint is weights/best.pt (chosen by scripts/ship.py), verified by hash."""
+    import hashlib
+
+    h = hashlib.sha256((ROOT / "weights" / "best.pt").read_bytes()).hexdigest()
+    for run in ABLATION:
+        w = ROOT / RUNS[run]["weights"]
+        if w.exists() and hashlib.sha256(w.read_bytes()).hexdigest() == h:
+            return run
+    raise SystemExit("weights/best.pt matches no ablation run; run scripts/ship.py")
 
 
 def ultra_val(weights: Path, data: Path, device: str, name: str) -> dict:
@@ -113,13 +129,15 @@ def plot_pr(res: dict, out: Path):
     fig, axes = plt.subplots(1, 2, figsize=(10, 4), facecolor="#fcfcfb")
     for k, name in enumerate(CLASS_NAMES):
         ax = axes[k]
-        for run, col, ls in (("baseline", GRAY, "--"), ("final", BLUE, "-")):
+        ship = res["_shipped"]
+        lines = [("baseline", GRAY, "--"), (ship, BLUE, "-")] + ([("final", ORANGE, ":")] if ship != "final" else [])
+        for run, col, ls in lines:
             if run not in res:
                 continue
             r = res[run]
             x = np.array(r["px"])
-            ax.plot(x, np.array(r["prec_values"])[k], color=col, ls=ls, lw=2,
-                    label=f"{run} (AP50 {r['per_class'][name]['mAP50']:.3f})")
+            label = f"{run}{' (shipped)' if run == ship else ''} (AP50 {r['per_class'][name]['mAP50']:.3f})"
+            ax.plot(x, np.array(r["prec_values"])[k], color=col, ls=ls, lw=2, label=label)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1.02)
         ax.set_title(f"{name}: precision-recall @ IoU 0.5 (grouped val)", fontsize=10, loc="left", color=INK)
@@ -149,7 +167,7 @@ def plot_confusion(cm: np.ndarray, conf: float, out: Path):
     ax.set_yticks(range(3), CLASS_NAMES + ["missed"], fontsize=8)
     ax.set_xlabel("true", fontsize=8, color=MUTED)
     ax.set_ylabel("predicted", fontsize=8, color=MUTED)
-    ax.set_title(f"final, grouped val, conf>={conf:.2f}, IoU 0.5", fontsize=9, loc="left")
+    ax.set_title(f"shipped model, grouped val, conf>={conf:.3f}, IoU 0.5", fontsize=9, loc="left")
     fig.tight_layout()
     fig.savefig(out, dpi=110)
     plt.close(fig)
@@ -184,20 +202,25 @@ def main():
             res[f"leak_{tag}"] = ultra_val(ROOT / RUNS["leak"]["weights"], y, "cpu", f"leak_{tag}_cpu")
             res[f"leak_{tag}"]["n_images"] = len(names)
 
+    ship = shipped_arm()
+    if ship not in res:
+        raise SystemExit(f"shipped arm {ship} was not evaluated (check --runs)")
+    res["_shipped"] = ship
     # the shipped threshold is rounded to 3 decimals; every count below uses exactly that value, so predict.py
     # (which reads threshold.json) reproduces them detection for detection
-    thr = round(res["final"]["conf_at_max_mean_f1"], 3)
+    thr = round(res[ship]["conf_at_max_mean_f1"], 3)
     (RESULTS / "threshold.json").write_text(json.dumps({
-        "conf": thr, "criterion": "confidence maximising the mean (over classes) F1 on the grouped val "
-        "split, final model, CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
-        "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res["final"]["per_class"].items()}}, indent=2))
+        "conf": thr, "model": f"weights/best.pt = runs/{ship}/weights/best.pt",
+        "criterion": "confidence maximising the mean (over classes) F1 on the grouped val split, shipped model, "
+        "CPU; same smoothed-F1 argmax Ultralytics uses for its P/R/F1",
+        "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res[ship]["per_class"].items()}}, indent=2))
 
     own = {r: own_counts(ROOT / RUNS[r]["weights"], ROOT / RUNS[r]["raw"], RUNS[r]["clahe"],
                          round(res[r]["conf_at_max_mean_f1"], 3)) for r in ABLATION if r in res}
 
     mps = None
     if not a.skip_mps:
-        mps = ultra_val(ROOT / RUNS["final"]["weights"], ROOT / RUNS["final"]["data"], "mps", "final_mps")
+        mps = ultra_val(ROOT / RUNS[ship]["weights"], ROOT / RUNS[ship]["data"], "mps", f"{ship}_mps")
 
     # ---------------------------------------------------------------- report
     md = ["# Metrics", "", "Generated by `scripts/evaluate.py`. All numbers below are from **CPU** validation, IoU 0.5 "
@@ -209,24 +232,38 @@ def main():
           "per class because a mean can hide one class failing.", "",
           "P, R and F1 are each taken at that model's own confidence that maximises mean F1 on val.", "",
           "## Ablation: per-class results on the grouped (leak-free) val split", "",
-          "| run | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |",
-          "|---|---|---|---|---|---|---|---|---|"]
+          f"2x2 design: CLAHE (yes/no) x augmentation (Ultralytics default / custom outdoor set). **Shipped: "
+          f"`{ship}`** (chosen by `scripts/ship.py`; rule and bootstrap CIs in `results/ablation.md`).", "",
+          "| run | data / augmentation | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |",
+          "|---|---|---|---|---|---|---|---|---|---|"]
     for run in [r for r in ABLATION if r in res]:
         r = res[run]
         t = r.get("train", {})
         for n in CLASS_NAMES + ["mean"]:
             v = r["per_class"][n] if n != "mean" else r["mean"]
-            md.append(f"| {run} | {'**' + n + '**' if n == 'mean' else n} | {fmt(v['precision'])} | "
+            md.append(f"| {run}{' **(shipped)**' if run == ship else ''} | {RUNS[run]['desc']} | "
+                      f"{'**' + n + '**' if n == 'mean' else n} | {fmt(v['precision'])} | "
                       f"{fmt(v['recall'])} | {fmt(v['f1'])} | {fmt(v['mAP50'])} | {fmt(v['mAP50-95'])} | "
                       f"{r['conf_at_max_mean_f1']:.3f} | {t.get('best_epoch', '?')}/{t.get('epochs_run', '?')} |")
     if "baseline" in res:
-        d = {k: res["final"]["mean"][k] - res["baseline"]["mean"][k] for k in ("f1", "mAP50", "mAP50-95")}
-        md += ["", f"Final minus baseline (mean over classes): F1 {d['f1']:+.3f}, mAP50 {d['mAP50']:+.3f}, "
-               f"mAP50-95 {d['mAP50-95']:+.3f}."]
+        md += [""]
+        for run in [r for r in ABLATION if r in res and r != "baseline"]:
+            d = {k: res[run]["mean"][k] - res["baseline"]["mean"][k] for k in ("f1", "mAP50", "mAP50-95")}
+            md.append(f"- {run} minus baseline (mean over classes): F1 {d['f1']:+.3f}, mAP50 {d['mAP50']:+.3f}, "
+                      f"mAP50-95 {d['mAP50-95']:+.3f}.")
+        abl = RESULTS / "ablation.json"
+        if abl.exists():  # significance comes from the bootstrap output, never hard-coded
+            diffs = json.loads(abl.read_text())["diff"]
+            sig = [f"{run} {m} {d['diff']:+.3f} [{d['ci'][0]:+.3f}, {d['ci'][1]:+.3f}]"
+                   for run, dm in diffs.items() for m, d in dm.items()
+                   if m in ("mAP50", "mAP50-95") and (d["ci"][0] > 0 or d["ci"][1] < 0)]
+            md += ["", "Paired cluster-bootstrap 95% CIs vs baseline (`results/ablation.md`): "
+                   + ("significant: " + "; ".join(sig) if sig else "no mean-mAP difference is significant")
+                   + "; everything else is within val-set noise."]
     md += ["",
            "![PR curves](pr_curves.png)", "",
            "## Deployed threshold", "",
-           f"`results/threshold.json`: **conf = {thr:.3f}** (max mean F1 on grouped val, final model). "
+           f"`results/threshold.json`: **conf = {thr:.3f}** (max mean F1 on grouped val, shipped model `{ship}`). "
            "Caveat: it is chosen on the same val set the numbers are reported on (there is no separate test "
            "set in this 999-image sample), so P/R/F1 are slightly optimistic; mAP is threshold-free.", "",
            "## Independent cross-check at the deployed threshold", "",
@@ -240,26 +277,26 @@ def main():
             v = own[run]["per_class"][n]
             md.append(f"| {run} | {n} | {v['n_gt']} | {v['tp']} | {v['fp']} | {v['fn']} | {fmt(v['precision'])} | "
                       f"{fmt(v['recall'])} ± {v['recall_95ci']:.3f} | {fmt(v['f1'])} |")
-    cm = np.array(own["final"]["confusion"])
-    plot_confusion(cm, thr, RESULTS / "confusion_final.png")
-    md += ["", "Confusion matrix (final, rows = predicted, cols = true; 'missed' = GT with no prediction, "
+    cm = np.array(own[ship]["confusion"])
+    plot_confusion(cm, thr, RESULTS / "confusion_shipped.png")
+    md += ["", f"Confusion matrix (shipped `{ship}`, rows = predicted, cols = true; 'missed' = GT with no prediction, "
            "'background' = prediction on no object):", "",
            "| predicted \\ true | bottle | mallet | background |", "|---|---|---|---|"]
     for i, n in enumerate(CLASS_NAMES + ["missed"]):
         md.append(f"| {n} | " + " | ".join(str(cm[i, j]) if not (i == 2 and j == 2) else "–" for j in range(3)) + " |")
-    md += ["", "![confusion](confusion_final.png)", ""]
+    md += ["", "![confusion](confusion_shipped.png)", ""]
 
     if "leak" in res:
         md += ["## Leakage inflation", "",
-               "Run (c) uses the final recipe on Roboflow's original split. Its val set is broken down by whether "
+               "Run `leak` uses the `final` recipe (CLAHE + custom aug) on Roboflow's original split. Its val set is broken down by whether "
                "each image has a same-origin image in train (results/audit.md). Same model on both subsets; what "
                "differs is whether a near-duplicate of the image was in its training set.", "",
                "| model / val subset | images | mean P | mean R | mean F1 | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 |",
                "|---|---|---|---|---|---|---|---|---|"]
-        rows = [("(c) leak model, all original val", res["leak"], 199),
-                ("(c) leak model, val images WITH train sibling", res["leak_leaked"], res["leak_leaked"]["n_images"]),
-                ("(c) leak model, val images WITHOUT sibling", res["leak_clean"], res["leak_clean"]["n_images"]),
-                ("(b) final model, grouped val", res["final"], 199)]
+        rows = [("leak model, all original val", res["leak"], 199),
+                ("leak model, val images WITH train sibling", res["leak_leaked"], res["leak_leaked"]["n_images"]),
+                ("leak model, val images WITHOUT sibling", res["leak_clean"], res["leak_clean"]["n_images"]),
+                ("same recipe (`final`) trained/validated on the grouped split", res["final"], 199)]
         for label, r, n in rows:
             m = r["mean"]
             md.append(f"| {label} | {n} | {fmt(m['precision'])} | {fmt(m['recall'])} | {fmt(m['f1'])} | "
@@ -274,24 +311,25 @@ def main():
                "*only* leakage.", ""]
 
     if mps:
-        md += ["## MPS vs CPU validation (final model, grouped val)", "",
+        md += [f"## MPS vs CPU validation (shipped `{ship}`, grouped val)", "",
                "| device | mean P | mean R | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 | conf@maxF1 |",
                "|---|---|---|---|---|---|---|---|"]
-        for dev, r in (("cpu", res["final"]), ("mps", mps)):
+        for dev, r in (("cpu", res[ship]), ("mps", mps)):
             m = r["mean"]
             md.append(f"| {dev} | {m['precision']:.4f} | {m['recall']:.4f} | {m['mAP50']:.4f} | "
                       f"{m['mAP50-95']:.4f} | {r['per_class']['bottle']['mAP50']:.4f} | "
                       f"{r['per_class']['mallet']['mAP50']:.4f} | {r['conf_at_max_mean_f1']:.3f} |")
         md += ["", f"Max absolute difference in mean mAP50-95: "
-               f"{abs(mps['mean']['mAP50-95'] - res['final']['mean']['mAP50-95']):.4f}. CPU numbers are the "
+               f"{abs(mps['mean']['mAP50-95'] - res[ship]['mean']['mAP50-95']):.4f}. CPU numbers are the "
                "ones reported everywhere else.", ""]
 
     plot_pr(res, RESULTS / "pr_curves.png")
     (RESULTS / "metrics.md").write_text("\n".join(md) + "\n")
     slim = {k: {kk: vv for kk, vv in v.items() if kk not in ("px", "f1_curve", "prec_values")}
-            for k, v in res.items()}
+            for k, v in res.items() if not k.startswith("_")}
+    slim["shipped"] = {"arm": ship, "threshold": thr}
     if mps:
-        slim["final_mps"] = {kk: vv for kk, vv in mps.items() if kk not in ("px", "f1_curve", "prec_values")}
+        slim[f"{ship}_mps"] = {kk: vv for kk, vv in mps.items() if kk not in ("px", "f1_curve", "prec_values")}
     slim["own_matching"] = own
     (RESULTS / "metrics.json").write_text(json.dumps(slim, indent=2, default=float))
     print("\n".join(md))

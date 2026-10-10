@@ -78,7 +78,8 @@ def main():
     dt = time.time() - t0
     best = ROOT / "runs" / name / "weights" / "best.pt"
     print(f"done in {dt / 60:.1f} min; best weights: {best}")
-    if a.run == "final" and not a.smoke:
+    # only the real final run publishes weights; smoke/timing/short runs (custom --name or --epochs) never do
+    if a.run == "final" and name == "final" and not a.smoke and a.epochs is None and a.fraction == 1.0:
         (ROOT / "weights").mkdir(exist_ok=True)
         shutil.copy2(best, ROOT / "weights" / "best.pt")
         print("copied to weights/best.pt")

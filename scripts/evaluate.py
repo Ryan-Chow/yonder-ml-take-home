@@ -32,6 +32,7 @@ from src.matching import confusion  # noqa: E402
 
 RESULTS = ROOT / "results"
 BLUE, ORANGE, GRAY, INK, MUTED = "#2a78d6", "#eb6834", "#8a8984", "#0b0b0b", "#52514e"
+ABLATION = ("baseline", "final")
 RUNS = {
     "baseline": dict(weights="runs/baseline/weights/best.pt", data="data/split/data.yaml", raw="data/split",
                      clahe=False, desc="(a) baseline: grouped split, raw images, default augmentation"),
@@ -113,6 +114,8 @@ def plot_pr(res: dict, out: Path):
     for k, name in enumerate(CLASS_NAMES):
         ax = axes[k]
         for run, col, ls in (("baseline", GRAY, "--"), ("final", BLUE, "-")):
+            if run not in res:
+                continue
             r = res[run]
             x = np.array(r["px"])
             ax.plot(x, np.array(r["prec_values"])[k], color=col, ls=ls, lw=2,
@@ -184,7 +187,7 @@ def main():
         "per_class_f1_at_conf": {k: round(v["f1"], 4) for k, v in res["final"]["per_class"].items()}}, indent=2))
 
     own = {r: own_counts(ROOT / RUNS[r]["weights"], ROOT / RUNS[r]["raw"], RUNS[r]["clahe"],
-                         res[r]["conf_at_max_mean_f1"]) for r in ("baseline", "final")}
+                         res[r]["conf_at_max_mean_f1"]) for r in ABLATION if r in res}
 
     mps = None
     if not a.skip_mps:
@@ -202,7 +205,7 @@ def main():
           "## Ablation: per-class results on the grouped (leak-free) val split", "",
           "| run | class | precision | recall | F1 | mAP50 | mAP50-95 | conf | best epoch / run |",
           "|---|---|---|---|---|---|---|---|---|"]
-    for run in ("baseline", "final"):
+    for run in [r for r in ABLATION if r in res]:
         r = res[run]
         t = r.get("train", {})
         for n in CLASS_NAMES + ["mean"]:
@@ -210,9 +213,11 @@ def main():
             md.append(f"| {run} | {'**' + n + '**' if n == 'mean' else n} | {fmt(v['precision'])} | "
                       f"{fmt(v['recall'])} | {fmt(v['f1'])} | {fmt(v['mAP50'])} | {fmt(v['mAP50-95'])} | "
                       f"{r['conf_at_max_mean_f1']:.3f} | {t.get('best_epoch', '?')}/{t.get('epochs_run', '?')} |")
-    d = {k: res["final"]["mean"][k] - res["baseline"]["mean"][k] for k in ("f1", "mAP50", "mAP50-95")}
-    md += ["", f"Final minus baseline (mean over classes): F1 {d['f1']:+.3f}, mAP50 {d['mAP50']:+.3f}, "
-           f"mAP50-95 {d['mAP50-95']:+.3f}.", "",
+    if "baseline" in res:
+        d = {k: res["final"]["mean"][k] - res["baseline"]["mean"][k] for k in ("f1", "mAP50", "mAP50-95")}
+        md += ["", f"Final minus baseline (mean over classes): F1 {d['f1']:+.3f}, mAP50 {d['mAP50']:+.3f}, "
+               f"mAP50-95 {d['mAP50-95']:+.3f}."]
+    md += ["",
            "![PR curves](pr_curves.png)", "",
            "## Deployed threshold", "",
            f"`results/threshold.json`: **conf = {thr:.3f}** (max mean F1 on grouped val, final model). "
@@ -224,7 +229,7 @@ def main():
            "Ultralytics' validator on the pre-made PNGs. Agreement with the table above shows predict.py "
            "reproduces the reported metrics.", "",
            "| run | class | GT | TP | FP | FN | precision | recall (±95% CI) | F1 |", "|---|---|---|---|---|---|---|---|---|"]
-    for run in ("baseline", "final"):
+    for run in own:
         for n in CLASS_NAMES:
             v = own[run]["per_class"][n]
             md.append(f"| {run} | {n} | {v['n_gt']} | {v['tp']} | {v['fp']} | {v['fn']} | {fmt(v['precision'])} | "

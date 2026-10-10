@@ -33,18 +33,32 @@ Re-counted with `src/matching.py` (greedy, IoU >= 0.5) by running the *deploymen
 |---|---|---|---|---|---|---|---|---|
 | baseline | bottle | 138 | 105 | 31 | 33 | 0.772 | 0.761 ± 0.071 | 0.766 |
 | baseline | mallet | 108 | 100 | 6 | 8 | 0.943 | 0.926 ± 0.049 | 0.935 |
-| final | bottle | 138 | 103 | 23 | 35 | 0.817 | 0.746 ± 0.073 | 0.780 |
+| final | bottle | 138 | 104 | 23 | 34 | 0.819 | 0.754 ± 0.072 | 0.785 |
 | final | mallet | 108 | 102 | 4 | 6 | 0.962 | 0.944 ± 0.043 | 0.953 |
 
 Confusion matrix (final, rows = predicted, cols = true; 'missed' = GT with no prediction, 'background' = prediction on no object):
 
 | predicted \ true | bottle | mallet | background |
 |---|---|---|---|
-| bottle | 103 | 0 | 23 |
+| bottle | 104 | 0 | 23 |
 | mallet | 2 | 102 | 2 |
-| missed | 33 | 6 | – |
+| missed | 32 | 6 | – |
 
 ![confusion](confusion_final.png)
+
+## Leakage inflation
+
+Run (c) uses the final recipe on Roboflow's original split. Its val set is broken down by whether each image has a same-origin image in train (results/audit.md). Same model on both subsets; what differs is whether a near-duplicate of the image was in its training set.
+
+| model / val subset | images | mean P | mean R | mean F1 | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 |
+|---|---|---|---|---|---|---|---|---|
+| (c) leak model, all original val | 199 | 0.935 | 0.877 | 0.904 | 0.914 | 0.558 | 0.850 | 0.977 |
+| (c) leak model, val images WITH train sibling | 107 | 0.938 | 0.910 | 0.923 | 0.930 | 0.568 | 0.871 | 0.989 |
+| (c) leak model, val images WITHOUT sibling | 92 | 0.945 | 0.835 | 0.885 | 0.894 | 0.554 | 0.830 | 0.958 |
+| (b) final model, grouped val | 199 | 0.889 | 0.849 | 0.868 | 0.883 | 0.490 | 0.797 | 0.968 |
+
+- Reported-number inflation from using Roboflow's split: mAP50 +0.031 (original val vs grouped val, same recipe).
+- Within the same model: leaked minus clean subset mAP50 = +0.036. Caveat: the subsets also differ in content (the leaked ones are mostly multi-shot outdoor sessions), so this gap is not *only* leakage.
 
 ## MPS vs CPU validation (final model, grouped val)
 

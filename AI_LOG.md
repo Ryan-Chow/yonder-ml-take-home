@@ -383,3 +383,55 @@ outdoor-oriented augmentations.
 - Caveat: `deterministic=True` is not fully honoured on MPS (PyTorch warns that `scatter_reduce` and
   `index_put_with_accumulate` have no deterministic MPS kernel). Re-training will give close but not bit-identical
   weights.
+
+## 8. Inference script, evaluation, leakage measurement
+
+**What was asked:** Step 7 (`evaluate.py`: per-class P/R/F1/mAP, confusion matrix, PR curves, baseline vs. final,
+the leakage comparison, and a threshold chosen by max mean F1) and Step 8 (`predict.py` plus format tests, then run
+it). Also the "Machine" rule: run the final evaluation on CPU and compare MPS vs. CPU.
+
+**What was kept vs. rewritten, and why:**
+- `src/infer.py` is the single inference path. `predict.py`, evaluation, error analysis, the video test, and hard
+  examples all call it (`7c8b735`, `a35880d`).
+- An independent matcher (`src/matching.py`) re-counts TP/FP/FN through that path, so the reported numbers come
+  from the same code that ships.
+- **Rewrite 1** (`fb3a529`): `preprocess()` now stretches non-512 inputs to 512×512 before CLAHE. Roboflow
+  exported the training set with "Stretch", while Ultralytics letterboxes non-square input. A 16:9 video frame would
+  otherwise reach the model with a different geometry than anything it trained on. Normalised outputs are invariant
+  to the stretch, so the output format is unchanged.
+- **Rewrite 2** (`bf10f9e`): every reported validation uses `rect=False` (details below).
+- **Rewrite 3** (`6ab47ef`): evaluation counts at the *rounded* threshold that ships (0.441).
+
+**What the AI got wrong / had to be caught:**
+- **Evaluated at an input size that never ships.** Ultralytics' default `.pt` validation (`rect=True`) pads
+  512×512 images to **544** (`pad=0.5` stride rounding in `data/build.py`).
+  - How it was caught: ONNX scored 0.677 mAP50 vs. 0.692 for PyTorch on the same weights.
+  - I first verified that the raw outputs agree (max |Δ| = 0.0012) and that `predict()` gives identical boxes
+    (3281 detections each).
+  - Then I reproduced 0.677 with PyTorch at `rect=False`.
+
+  All reported numbers now use the deployed 512 input. The per-epoch val used to pick `best.pt` during training
+  still uses 544; that is a minor effect I left alone.
+- **Off by one detection between `evaluate.py` and `predict.py`** (232 vs. 233). Evaluation used the unrounded
+  threshold 0.44144, while `threshold.json` and `predict.py` use 0.441; one detection sat at 0.4412. The fix is
+  `6ab47ef`. `tests/test_consistency.py` failed before the fix and passes after it.
+- **Picking up in-progress checkpoints.** Ultralytics rewrites `best.pt` every epoch. My bootstrap script silently
+  included `clahe_only` at epoch 3 (mAP50 0.41). The fix (`4aa654e`) uses only checkpoints whose optimizer has been
+  stripped, which happens at the end of training.
+- **My planned leakage measurement would have measured memorisation.** "Final model on the original val" scores the
+  grouped-trained model on images ~80% of which it trained on. I replaced it with run (c): the final recipe trained
+  on the original split, scored on its leaked vs. clean val subsets.
+
+**Verification & final review:**
+- On CPU at 512, final vs. baseline on grouped val: mAP50 0.883 vs. 0.876, mAP50-95 0.490 vs. 0.541, mean F1 0.868
+  vs. 0.851.
+- **MPS and CPU validation are identical** to 4 decimals for this model, so the MPS discrepancy the prompt warned
+  about does not occur here.
+- The own-matching P/R agrees with Ultralytics' validator (e.g. bottle 0.819/0.754 in both), and
+  `tests/test_consistency.py` proves `predict.py`'s `.txt` files reproduce the reported confusion matrix exactly.
+- The final model's two "wrong class" errors (`t_bot_mal578`, `581`) are **dataset label errors**: orange mallets
+  labelled bottle, checked by eye next to their correctly labelled neighbours 576 and 579. True class confusion is 0.
+- Leakage: the same recipe scores mAP50 0.914 / mAP50-95 0.558 on Roboflow's val vs. 0.883 / 0.490 on the grouped
+  val. Inside the leak model, leaked val images score 0.930 vs. 0.894 for clean ones. That leaked/clean gap is
+  confounded by content, as the report states.
+- Limitation: the threshold is chosen on the same val set it is reported on, because there is no test split.

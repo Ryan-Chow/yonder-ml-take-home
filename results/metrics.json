@@ -67,6 +67,96 @@
     },
     "desc": "(b) final: grouped split, CLAHE, custom augmentation"
   },
+  "leak": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.9168643574772603,
+        "recall": 0.803414003534486,
+        "f1": 0.85639822116422,
+        "mAP50": 0.849978989833595,
+        "mAP50-95": 0.5191440836656002
+      },
+      "mallet": {
+        "precision": 0.9527060442963576,
+        "recall": 0.9502231566386041,
+        "f1": 0.9514629806670389,
+        "mAP50": 0.9770513871411275,
+        "mAP50-95": 0.596369040582609
+      }
+    },
+    "mean": {
+      "precision": 0.9347852008868089,
+      "recall": 0.8768185800865451,
+      "f1": 0.9039306009156295,
+      "mAP50": 0.9135151884873612,
+      "mAP50-95": 0.5577565621241045
+    },
+    "conf_at_max_mean_f1": 0.4394394394394394,
+    "n_images": null,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/leak_cpu",
+    "train": {
+      "epochs_run": 60,
+      "best_epoch": 60,
+      "train_minutes": 46.98083333333333
+    },
+    "desc": "(c) final recipe trained on the ORIGINAL (leaky) Roboflow split"
+  },
+  "leak_leaked": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.8966106529229646,
+        "recall": 0.8378378378378378,
+        "f1": 0.8662284695440385,
+        "mAP50": 0.8707220354794366,
+        "mAP50-95": 0.5395167614195675
+      },
+      "mallet": {
+        "precision": 0.9792010484348072,
+        "recall": 0.9818181818181818,
+        "f1": 0.980507868742002,
+        "mAP50": 0.9887464788732394,
+        "mAP50-95": 0.5963991412145613
+      }
+    },
+    "mean": {
+      "precision": 0.9379058506788859,
+      "recall": 0.9098280098280098,
+      "f1": 0.9233681691430202,
+      "mAP50": 0.9297342571763381,
+      "mAP50-95": 0.5679579513170643
+    },
+    "conf_at_max_mean_f1": 0.4214214214214214,
+    "n_images": 107,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/leak_leaked_cpu"
+  },
+  "leak_clean": {
+    "per_class": {
+      "bottle": {
+        "precision": 0.9512649037188781,
+        "recall": 0.7605362158649206,
+        "f1": 0.8452750753374503,
+        "mAP50": 0.8298793475382246,
+        "mAP50-95": 0.5011669549523857
+      },
+      "mallet": {
+        "precision": 0.9392269245353742,
+        "recall": 0.9091893144553378,
+        "f1": 0.923964057037916,
+        "mAP50": 0.9584698693757099,
+        "mAP50-95": 0.6062740687054193
+      }
+    },
+    "mean": {
+      "precision": 0.9452459141271261,
+      "recall": 0.8348627651601292,
+      "f1": 0.8846195661876831,
+      "mAP50": 0.8941746084569673,
+      "mAP50-95": 0.5537205118289025
+    },
+    "conf_at_max_mean_f1": 0.5115115115115115,
+    "n_images": 92,
+    "save_dir": "/Users/rchow/Documents/GitHub/yonder-ml-take-home/runs/eval/leak_clean_cpu"
+  },
   "final_mps": {
     "per_class": {
       "bottle": {
@@ -140,14 +230,14 @@
     "final": {
       "per_class": {
         "bottle": {
-          "tp": 103,
+          "tp": 104,
           "fp": 23,
-          "fn": 35,
-          "precision": 0.8174603174603174,
-          "recall": 0.7463768115942029,
-          "f1": 0.7803030303030303,
+          "fn": 34,
+          "precision": 0.8188976377952756,
+          "recall": 0.7536231884057971,
+          "f1": 0.7849056603773584,
           "n_gt": 138,
-          "recall_95ci": 0.07259221969469745
+          "recall_95ci": 0.07189415272873124
         },
         "mallet": {
           "tp": 102,
@@ -162,7 +252,7 @@
       },
       "confusion": [
         [
-          103,
+          104,
           0,
           23
         ],
@@ -172,7 +262,7 @@
           2
         ],
         [
-          33,
+          32,
           6,
           0
         ]

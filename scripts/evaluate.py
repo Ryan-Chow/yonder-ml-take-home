@@ -252,8 +252,8 @@ def main():
     if "leak" in res:
         md += ["## Leakage inflation", "",
                "Run (c) uses the final recipe on Roboflow's original split. Its val set is broken down by whether "
-               "each image has a same-origin image in train (results/audit.md). Same model, same images type, "
-               "only difference = a near-duplicate was seen in training.", "",
+               "each image has a same-origin image in train (results/audit.md). Same model on both subsets; what "
+               "differs is whether a near-duplicate of the image was in its training set.", "",
                "| model / val subset | images | mean P | mean R | mean F1 | mAP50 | mAP50-95 | bottle mAP50 | mallet mAP50 |",
                "|---|---|---|---|---|---|---|---|---|"]
         rows = [("(c) leak model, all original val", res["leak"], 199),

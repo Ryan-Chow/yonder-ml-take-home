@@ -19,19 +19,33 @@ import cv2
 import numpy as np
 import yaml
 
+TRAIN_SIZE = 512  # Roboflow exported every training image as 512x512 "Stretch" (aspect ratio NOT preserved)
 CLIP_LIMIT = 2.0
 TILE_GRID = (8, 8)  # 64x64-px tiles at 512x512: about the size of a median object box (~60 px)
 _clahe = None
 
 
+def stretch(img_bgr: np.ndarray) -> np.ndarray:
+    """Resize to TRAIN_SIZE x TRAIN_SIZE ignoring aspect ratio, exactly like the Roboflow export (no-op at 512x512)."""
+    if img_bgr.ndim == 2:
+        img_bgr = cv2.cvtColor(img_bgr, cv2.COLOR_GRAY2BGR)
+    if img_bgr.shape[:2] != (TRAIN_SIZE, TRAIN_SIZE):
+        img_bgr = cv2.resize(img_bgr, (TRAIN_SIZE, TRAIN_SIZE), interpolation=cv2.INTER_AREA)
+    return img_bgr
+
+
 def preprocess(img_bgr: np.ndarray) -> np.ndarray:
-    """BGR uint8 HxWx3 -> BGR uint8 HxWx3 with CLAHE applied to LAB lightness. Deterministic, size-preserving."""
+    """BGR uint8 HxWx3 -> BGR uint8 512x512x3: stretch-resize like the training export, then CLAHE on LAB L.
+
+    The stretch matters for non-square inputs (e.g. 16:9 video frames): the model only ever saw stretched images,
+    while Ultralytics would otherwise letterbox and preserve aspect. Normalised box coordinates are invariant to
+    independent x/y scaling, so detections on the 512x512 image map 1:1 onto the original frame. For the 512x512
+    dataset images the resize is a no-op.
+    """
     global _clahe
     if _clahe is None:
         _clahe = cv2.createCLAHE(clipLimit=CLIP_LIMIT, tileGridSize=TILE_GRID)
-    if img_bgr.ndim == 2:
-        img_bgr = cv2.cvtColor(img_bgr, cv2.COLOR_GRAY2BGR)
-    lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
+    lab = cv2.cvtColor(stretch(img_bgr), cv2.COLOR_BGR2LAB)
     lab[..., 0] = _clahe.apply(np.ascontiguousarray(lab[..., 0]))
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 

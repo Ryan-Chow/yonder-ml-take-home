@@ -12,7 +12,7 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 import numpy as np  # noqa: E402
 
-from src.preprocess import preprocess  # noqa: E402
+from src.preprocess import preprocess, stretch  # noqa: E402
 
 IMGSZ = 512
 NMS_IOU = 0.7  # Ultralytics default for both val and predict, so predict.py matches the reported metrics
@@ -31,7 +31,7 @@ def detect(model, images_bgr: list[np.ndarray], conf: float, clahe: bool = True,
     Sorted by descending confidence."""
     out = []
     for k in range(0, len(images_bgr), batch):
-        chunk = [preprocess(im) if clahe else im for im in images_bgr[k:k + batch]]
+        chunk = [preprocess(im) if clahe else stretch(im) for im in images_bgr[k:k + batch]]
         results = model.predict(chunk, imgsz=IMGSZ, conf=conf, iou=NMS_IOU, max_det=MAX_DET, device=device,
                                 verbose=False)
         for r in results:
